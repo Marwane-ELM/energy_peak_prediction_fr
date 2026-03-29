@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+venv/
+.env
+
+# Logs
+*.log
+
+
+# Datasets
+*.xls
+*.csv
+
+# Jupyter
+.ipynb_checkpoints/
