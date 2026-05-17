@@ -17,3 +17,32 @@ From : https://www.rte-france.com/donnees-publications/eco2mix-donnees-temps-ree
 
 We download the dataset called " **En-cours mensuel temps réel** ".  
 This dataset provides us recent data covering the period from the beggining of the current month to the current date.
+
+
+
+### Dataset that will be used for the training
+- Historical data of observed electricity consumption
+- Historical data of observed metrics about the weather of France's biggest cities
+- Historical calender of school holidays (depending on the zone A, B, C), national and public holidays ('jours fériés', strikes...)
+
+### Dataset that will be given to the model after the training
+- The time slots of the next day (we'll observe if the next day is special (any holiday))
+- The weather metrics of the next day for each time slots of the major cities in France
+
+| City	| Why include it |
+| ------|----------------|
+|Paris	| biggest demand center|
+|Lille	| northern colder zone|
+|Marseille | Mediterranean south|
+|Lyon | major inland urban hub|
+|Toulouse | southwest climate|
+|Bordeaux | Atlantic southwest|
+|Nantes	| western oceanic climate|
+|Strasbourg	| continental east|
+|Montpellier | Mediterranean variation|
+|Nice | Riviera coastal climate|
+|Grenoble | alpine / mountain influence|
+|Rennes	| northwest oceanic regime|
+
+
+We'll use the weather metrics of these main cities instead of their respective departments because it'll be easier for us to collect the forecast weather metrics for the predictions. There are a ton of APIs that provide those services.
