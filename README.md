@@ -46,3 +46,19 @@ This dataset provides us recent data covering the period from the beggining of t
 
 
 We'll use the weather metrics of these main cities instead of their respective departments because it'll be easier for us to collect the forecast weather metrics for the predictions. There are a ton of APIs that provide those services.
+
+
+### Dataset features  
+
+For the dataset `conso `, we'll keep few columns and also add multiple ones.  
+Default columns : 
+- Consommation
+
+  
+New columns : 
+- Lagged columns : new features giving informations about the consommation during the previous time units (t-15min, t-1, t-4, t-24, t-96)
+- day of the week
+- month
+- season
+- weather data
+- calendar (school and public holidays)
