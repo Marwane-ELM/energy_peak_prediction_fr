@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import joblib as jb
+import os.path
 from datetime import datetime
 
 
@@ -53,7 +55,11 @@ def name_holiday(x, holiday_ranges):
 
 
 
-def school_holidays_preprocess(conso_df, PATH_HOLIDAYS):
+def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
+    """
+    This function takes as input the dataset on energy consumption and 2 paths depending on where it's called from
+    """
+
     conso = conso_df
     holidays = pd.read_excel(f"{PATH_HOLIDAYS}calendrier_gouv.xlsx")
     holidays["Zones"] = holidays["Zones"].apply(lambda d: d.replace(' ', '_'))
@@ -74,42 +80,64 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS):
     for name in holiday_names:
         new_holidays[name] = 0
 
+
     # -----
     # We store the holidays for each zone in a dictionary
     holiday_ranges = {}
-    for zone in zones:
-        # We select the date of the new dataset to facilitate the automation of the project in the future
-        min_year = int(new_holidays["Date"].iloc[0][:4])
-        max_year = int(new_holidays["Date"].iloc[-1][:4])
-        ranges = []
-        for date in range(min_year, max_year+1):
-            for holiday in holiday_names:
-                # The holidays "Vacances de Noël" start at "date-1" and end at "date".
-                if holiday == "Vacances de Noël":
-                    holidays_filtered = holidays[
-                                        (holidays["Zones"] == zone) & 
-                                        (holidays["Description"] == holiday) &
-                                        (holidays["annee_scolaire"] == f"{date-1}-{date}")
-                                    ]
-                else : 
-                    holidays_filtered = holidays[
+    # Either we load it or we create it if needed
+    if not os.path.isfile(f"{PATH_ARTIFACTS}holiday_ranges.pkl"):
+        for zone in zones:
+            # We select the date of the new dataset to facilitate the automation of the project in the future
+            min_year = int(new_holidays["Date"].iloc[0][:4])
+            max_year = int(new_holidays["Date"].iloc[-1][:4])
+            ranges = []
+            for date in range(min_year, max_year+1):
+                for holiday in holiday_names:
+                    # The holidays "Vacances de Noël" start at "date-1" and end at "date".
+                    if holiday == "Vacances de Noël":
+                        holidays_filtered = holidays[
                                             (holidays["Zones"] == zone) & 
                                             (holidays["Description"] == holiday) &
-                                            (holidays["annee_scolaire"] == f"{date}-{date+1}")
+                                            (holidays["annee_scolaire"] == f"{date-1}-{date}")
                                         ]
-                start = datetime.strptime(holidays_filtered["Date de début"].iloc[0][:10], "%Y-%m-%d")
-                end = datetime.strptime(holidays_filtered["Date de fin"].iloc[0][:10], "%Y-%m-%d")
-                ranges.append((holiday, start, end))
-        holiday_ranges[zone] = ranges
+                    else : 
+                        holidays_filtered = holidays[
+                                                (holidays["Zones"] == zone) & 
+                                                (holidays["Description"] == holiday) &
+                                                (holidays["annee_scolaire"] == f"{date}-{date+1}")
+                                            ]
+                    start = datetime.strptime(holidays_filtered["Date de début"].iloc[0][:10], "%Y-%m-%d")
+                    end = datetime.strptime(holidays_filtered["Date de fin"].iloc[0][:10], "%Y-%m-%d")
+                    ranges.append((holiday, start, end))
+            holiday_ranges[zone] = ranges
+        jb.dump(holiday_ranges, f"{PATH_ARTIFACTS}holiday_ranges.pkl")
+        print("(Dictionnary successfully created)")
+        
+    else : 
+        holiday_ranges = jb.load(f"{PATH_ARTIFACTS}holiday_ranges.pkl")  
+        print("(Dictionnary successfully loaded)")
 
-    # ----
+    # ------
     
     for zone in zones:
         new_holidays[zone] = new_holidays["Date"].apply(lambda d : is_holiday(d, zone, holiday_ranges))
     
     new_holidays = new_holidays.apply(lambda x: name_holiday(x, holiday_ranges), axis=1)
-
+    
     return new_holidays
-        
 
 
+#def merge_conso_with_holidays(conso, holidays):
+#    return pd.concat([conso, holidays.drop("Date", axis=1)], axis=1)
+
+
+def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
+    feries = pd.read_csv(f"{PATH_PUBLIC_HDAY}jours_feries_metropole.csv").drop(["annee", "zone"], axis=1) 
+    feries["date"] = feries["date"].apply(lambda x : datetime.strptime(x, "%Y-%m-%d"))
+    feries = feries[
+        (feries["date"] >= datetime.strptime(conso_df["Date"].iloc[0], "%Y-%m-%d")) &
+        (feries["date"] <= datetime.strptime(conso_df["Date"].iloc[-1], "%Y-%m-%d"))
+        ]
+    public_holidays = set(feries["date"])
+    conso_df["public_holidays"] = pd.to_datetime(conso_df["Date"]).isin(public_holidays) + 0
+    

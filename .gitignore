@@ -17,5 +17,8 @@ data/
 *.xls
 *.csv
 
+# Artifacts
+artifacts/*
+
 # Jupyter
 .ipynb_checkpoints/
