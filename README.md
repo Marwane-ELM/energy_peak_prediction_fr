@@ -52,8 +52,10 @@ We'll use the weather metrics of these main cities instead of their respective d
 
 For the dataset `conso `, we'll keep few columns and also add multiple ones.  
 Default columns : 
-- Consommation
 
+- Date
+- Hour
+- Consommation
   
 New columns : 
 - Lagged columns : new features giving informations about the consommation during the previous time units (t-15min, t-1, t-4, t-24, t-96)
