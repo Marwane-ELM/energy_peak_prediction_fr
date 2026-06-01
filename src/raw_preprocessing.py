@@ -24,6 +24,9 @@ def conso_preprocess(PATH_CONSO):
     conso = conso.drop(["index"], axis=1)
     conso = conso[conso["Consommation"].notna()]
     conso = conso[["Date", "Heures", "Consommation"]]
+    conso["Date"] = conso["Date"].apply(lambda x : datetime.strptime(x, "%Y-%m-%d").date())
+    conso["Heures"] = conso["Heures"].apply(lambda x : datetime.strptime(x, "%H:%M").time())
+
     return conso
 
 
@@ -31,13 +34,13 @@ def conso_preprocess(PATH_CONSO):
 
 # ------- SCHOOL HOLIDAYS --------
 
-def is_holiday(date_str, zone, holiday_ranges):
-    date_dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
-    return any(start <= date_dt < end for _, start, end in holiday_ranges[zone])
+def is_holiday(date, zone, holiday_ranges):
+    #date_dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
+    return any(start <= date < end for _, start, end in holiday_ranges[zone])
 
 
 def name_holiday(x, holiday_ranges):
-    date_dt = datetime.strptime(x["Date"][:10], "%Y-%m-%d")
+    date_dt = x["Date"]
     current_zone = ""
     if x["Zone_A"] == True:
         current_zone = "Zone_A"
@@ -88,8 +91,8 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     if not os.path.isfile(f"{PATH_ARTIFACTS}holiday_ranges.pkl"):
         for zone in zones:
             # We select the date of the new dataset to facilitate the automation of the project in the future
-            min_year = int(new_holidays["Date"].iloc[0][:4])
-            max_year = int(new_holidays["Date"].iloc[-1][:4])
+            min_year = new_holidays["Date"].iloc[0].year
+            max_year = new_holidays["Date"].iloc[-1].year
             ranges = []
             for date in range(min_year, max_year+1):
                 for holiday in holiday_names:
@@ -106,8 +109,8 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
                                                 (holidays["Description"] == holiday) &
                                                 (holidays["annee_scolaire"] == f"{date}-{date+1}")
                                             ]
-                    start = datetime.strptime(holidays_filtered["Date de début"].iloc[0][:10], "%Y-%m-%d")
-                    end = datetime.strptime(holidays_filtered["Date de fin"].iloc[0][:10], "%Y-%m-%d")
+                    start = datetime.strptime(holidays_filtered["Date de début"].iloc[0][:10], "%Y-%m-%d").date()
+                    end = datetime.strptime(holidays_filtered["Date de fin"].iloc[0][:10], "%Y-%m-%d").date()
                     ranges.append((holiday, start, end))
             holiday_ranges[zone] = ranges
         jb.dump(holiday_ranges, f"{PATH_ARTIFACTS}holiday_ranges.pkl")
@@ -133,10 +136,10 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
 
 def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
     feries = pd.read_csv(f"{PATH_PUBLIC_HDAY}jours_feries_metropole.csv").drop(["annee", "zone"], axis=1) 
-    feries["date"] = feries["date"].apply(lambda x : datetime.strptime(x, "%Y-%m-%d"))
+    feries["date"] = feries["date"].apply(lambda x : datetime.strptime(x, "%Y-%m-%d").date())
     feries = feries[
-        (feries["date"] >= datetime.strptime(conso_df["Date"].iloc[0], "%Y-%m-%d")) &
-        (feries["date"] <= datetime.strptime(conso_df["Date"].iloc[-1], "%Y-%m-%d"))
+        (feries["date"] >= conso_df["Date"].iloc[0]) &
+        (feries["date"] <= conso_df["Date"].iloc[-1])
         ]
     public_holidays = set(feries["date"])
     conso_df["public_holidays"] = pd.to_datetime(conso_df["Date"]).isin(public_holidays) + 0
