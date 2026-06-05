@@ -131,10 +131,6 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
 
 
 # --------------------------------
-    
-#def merge_conso_with_holidays(conso, holidays):
-#    return pd.concat([conso, holidays.drop("Date", axis=1)], axis=1)
-
 
 def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
     feries = pd.read_csv(f"{PATH_PUBLIC_HDAY}jours_feries_metropole.csv").drop(["annee", "zone"], axis=1) 
@@ -147,6 +143,8 @@ def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
     conso_df["public_holidays"] = pd.to_datetime(conso_df["Date"]).isin(public_holidays) + 0
     
 
+
+# ----- SELECTING THE BEST WEATHER STATION 
 
 def monitoring_nan(df):
     print("There are", len(df["NUM_POSTE"].unique()), "stations")
@@ -177,4 +175,79 @@ def select_best_station(df, conso):
 
     
     return df
+
+
+
+# Adding the timestamps every half-hour
+
+def half_hour(df, conso):
+    timestamps = conso[["Date", "Heures"]].sort_values(["Date", "Heures"])
+    
+    df = timestamps.merge(df, on=["Date", "Heures"], how="left")
+    df = df.sort_values(["Date", "Heures"]).reset_index(drop=True)
+    df["NUM_POSTE"] = df["NUM_POSTE"].loc[df["NUM_POSTE"].first_valid_index()].astype(int)
+    df["LAT"] = df["LAT"].loc[df["LAT"].first_valid_index()]
+    df["LON"] = df["LON"].loc[df["LON"].first_valid_index()]
+    return df
+    
+
+
+# FILLING THE MISING VALUES WITH THE LINEAR INTERPOLATION METHOD
+
+def interpolation(x, n1, n2):
+    x1, X1 = n1
+    x2, X2 = n2
+    return X1 + (x-x1)*(X2-X1)/(x2-x1)
+
+
+def time_to_float(t):
+    """Convert datetime.time to float hours 
+    example :  14:30 -> 14.5
+    """
+    return t.hour + t.minute / 60
+
+
+def interpolation_col(df):
+    df = df.reset_index(drop=True)
+    columns = list(set(df.columns) - set(["NUM_POSTE", "LAT", "LON", "Date", "Heures"]))
+    
+    for col in columns:
+        # If the column contains Nan Values, we apply the interpolation method on it
+        if (df[col].isnull().mean() * 100) != 0.0 :
+            for i in range(len(df)):
+                if(pd.isna(df[col].iloc[i])):
+                    # If the missing value is in the first row, we choose the value of the next row
+                    
+                    if(i == 0):
+                        df[i, col] = df[col].iloc[i+1]                        
+                    # If the missing value is in the last row, we choose the value of the last row
+                    elif i == len(df)-1 : 
+                        df[i, col] = df[col].iloc[i-1]
+                    else : 
+                        
+                        t = time_to_float(df["Heures"].iloc[i])
+                        t1, T1 = time_to_float(df["Heures"].iloc[i-1]), df[col].iloc[i-1]    
+                        # We select the index of the next valid row (Not NaN value)
+                        # first_valid_index returns an index, not a position
+                        idx_next = df[col].iloc[i+1:].first_valid_index()
+                        if idx_next is None:
+                            df.loc[i, col] = T1
+                            continue
+
+                        t2, T2 = time_to_float(df["Heures"].loc[idx_next]), df[col].loc[idx_next]
+                        
+                        df.loc[i, col] = interpolation(t, (t1, T1), (t2, T2))
+    return df
+
+
+
+def interpolate_pd(df):
+    columns = list(set(df.columns) - set(["NUM_POSTE", "LAT", "LON", "Date", "Heures"]))
+    df[columns] = df[columns].interpolate(method="linear", limit=12)
+            
+            
+    
+
+
+
 
