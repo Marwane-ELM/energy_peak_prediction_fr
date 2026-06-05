@@ -130,6 +130,8 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     return new_holidays
 
 
+# --------------------------------
+    
 #def merge_conso_with_holidays(conso, holidays):
 #    return pd.concat([conso, holidays.drop("Date", axis=1)], axis=1)
 
@@ -144,3 +146,35 @@ def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
     public_holidays = set(feries["date"])
     conso_df["public_holidays"] = pd.to_datetime(conso_df["Date"]).isin(public_holidays) + 0
     
+
+
+def monitoring_nan(df):
+    print("There are", len(df["NUM_POSTE"].unique()), "stations")
+    
+    print("Percentage of NaN per column")
+    print((df.isnull().mean() * 100).round(1))
+    
+    print("\nPercentage of NaN per station")
+    print(df.groupby('NUM_POSTE')[['T', 'U', 'FF', 'PMER', 'RR1']].apply(
+        lambda x: x.isnull().mean() * 100))
+
+
+def select_best_station(df, conso):    
+    grid_scores = df.groupby('NUM_POSTE')[['T', 'U', 'FF', 'PMER', 'RR1']].apply(lambda x: x.isnull().mean() * 100)
+    grid_scores_array = np.array(grid_scores) 
+    x, y = grid_scores_array.shape
+    
+    weights = np.array([3, 2, 2, 1, 1]).reshape((y, 1))
+    best_station_score = grid_scores_array.dot(weights)
+    best_station = int(grid_scores.iloc[best_station_score.argmin()].name)
+
+    print("The best station has a weighted average of : ", best_station_score.min())
+    print("Best station : ", best_station)
+    
+    df = df[df["NUM_POSTE"] == best_station]
+    assert len(conso) == len(df) * 2, print("The sizes of this dataset and the main dataset conso don't match together\n",
+                                           f"Current dataset size : {len(df)}", f"Main dataset size : {len(conso)}")
+
+    
+    return df
+
