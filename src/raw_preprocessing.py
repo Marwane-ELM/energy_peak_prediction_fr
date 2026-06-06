@@ -242,8 +242,18 @@ def interpolation_col(df):
 
 
 def interpolate_pd(df):
-    columns = list(set(df.columns) - set(["NUM_POSTE", "LAT", "LON", "Date", "Heures"]))
-    df[columns] = df[columns].interpolate(method="linear", limit=12)
+    
+    # The limit_direction is very important for our problem
+    df[["T", "U"]] = df[["T", "U"]].interpolate(method="linear", limit=12, limit_direction="both")  
+    df[["PMER"]] = df[["PMER"]].interpolate(method="linear", limit=24, limit_direction="both")  
+    df['RR1'] = df['RR1'].fillna(0.0)
+
+    # After interpolation we fill any NaN with the column median
+    for col in ['T', 'U', 'FF', 'PMER']:
+        df[col] = df[col].fillna(df[col].median())
+    
+    
+    
             
             
     
