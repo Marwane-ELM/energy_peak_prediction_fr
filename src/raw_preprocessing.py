@@ -1,7 +1,9 @@
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import joblib as jb
 import os.path
+import re
 from datetime import datetime
 
 
@@ -28,7 +30,6 @@ def conso_preprocess(PATH_CONSO):
     conso["Heures"] = conso["Heures"].apply(lambda x : datetime.strptime(x, "%H:%M").time())
 
     return conso
-
 
 
 
@@ -114,11 +115,9 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
                     ranges.append((holiday, start, end))
             holiday_ranges[zone] = ranges
         jb.dump(holiday_ranges, f"{PATH_ARTIFACTS}holiday_ranges.pkl")
-        print("(Dictionnary successfully created)")
         
     else : 
         holiday_ranges = jb.load(f"{PATH_ARTIFACTS}holiday_ranges.pkl")  
-        print("(Dictionnary successfully loaded)")
 
     # ------
     
@@ -147,12 +146,12 @@ def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
 # ----- SELECTING THE BEST WEATHER STATION 
 
 def monitoring_nan(df):
-    print("There are", len(df["NUM_POSTE"].unique()), "stations")
+    print("Nb of stations : ", len(df["NUM_POSTE"].unique()))
     
-    print("Percentage of NaN per column")
+    print("Percentage of NaN per column :")
     print((df.isnull().mean() * 100).round(1))
     
-    print("\nPercentage of NaN per station")
+    print("\nPercentage of NaN per station :")
     print(df.groupby('NUM_POSTE')[['T', 'U', 'FF', 'PMER', 'RR1']].apply(
         lambda x: x.isnull().mean() * 100))
 
@@ -169,9 +168,8 @@ def select_best_station(df, conso):
     print("The best station has a weighted average of : ", best_station_score.min())
     print("Best station : ", best_station)
     
-    df = df[df["NUM_POSTE"] == best_station]
-    assert len(conso) == len(df) * 2, print("The sizes of this dataset and the main dataset conso don't match together\n",
-                                           f"Current dataset size : {len(df)}", f"Main dataset size : {len(conso)}")
+    df = df[df["NUM_POSTE"] == best_station].drop_duplicates(subset=["Date", "Heures"])
+    assert len(conso) == len(df) * 2, print("The sizes of this dataset and the main dataset conso don't match together\n", f"Current dataset size*2 : {len(df) * 2}", f"Main dataset size : {len(conso)}")
 
     
     return df
@@ -241,6 +239,67 @@ def interpolation_col(df):
 
 
 
+def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
+    data_dir = Path(PATH_FILES)
+    cols_to_keep = [
+        'NUM_POSTE',        # station ID : identifies the city
+        'LAT', 'LON',       # coordinates: used to query Open-Meteo
+        'AAAAMMJJHH',       # timestamp
+        # Usefull features that we can found with the API of open-meteo
+        'T',                # temperature_2m        
+        'U',                # relative_humidity_2m  
+        'FF',               # wind_speed_10m        
+        'PMER',             # pressure_msl          
+        'RR1',              # precipitation         
+    ]
+    min_date = conso["Date"].iloc[0]
+    max_date = conso["Date"].iloc[-1]
+
+
+    for path_f in data_dir.glob("*.gz"):
+        num = re.findall(r'\d+', os.path.basename(path_f))[0]
+        print("Loading the file of the department n°", num, "...")
+        df = pd.read_csv(path_f, sep =';', compression="gzip")[cols_to_keep]
+        print("File loaded with success")
+
+        print("Adding the Date and Hours")
+        df["Date"] = df["AAAAMMJJHH"].apply(lambda x : str(str(x)[:8]))
+        df["Date"] = df["Date"].apply(lambda x : datetime.strptime(x, '%Y%m%d').date())
+        
+        df["Heures"] = df["AAAAMMJJHH"].apply(lambda x : str(str(x)[8:]) + ':00')
+        df["Heures"] = df["Heures"].apply(lambda x : datetime.strptime(x, '%H:%M').time())
+        
+        df = df.drop("AAAAMMJJHH", axis=1)
+        assert len(df["Heures"].unique()) == 24, "There are missing time frames"
+
+        
+        df = df[
+            (df["Date"]>= min_date) & 
+            (df["Date"]<= max_date)
+            ]
+        
+        print(f"Before selecting the best station for department n°{num}\n")
+        monitoring_nan(df)
+        df = select_best_station(df, conso)
+        print(f"\nAfter selecting the best station for departement n°{num}\n")
+        monitoring_nan(df)
+
+        print("Adding the half-hour time units\n")
+        df = half_hour(df, conso)
+
+        print("Interpolation of the columns")
+        interpolate_pd(df)
+
+        print("After interpolation : \n")
+        monitoring_nan(df)
+
+        output_path = Path(PATH_TOSAVE) / path_f.with_suffix("").with_suffix(".parquet").name
+        df.to_parquet(output_path, index=False)
+        
+        print(f"Dataset {os.path.basename(path_f)} was cleaned and saved with success")
+        print("# -------------------------------------------------------------------#\n")
+
+
 def interpolate_pd(df):
     
     # The limit_direction is very important for our problem
@@ -253,8 +312,11 @@ def interpolate_pd(df):
         df[col] = df[col].fillna(df[col].median())
     
     
+
+        
     
-            
+    
+    
             
     
 
