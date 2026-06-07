@@ -237,7 +237,18 @@ def interpolation_col(df):
                         df.loc[i, col] = interpolation(t, (t1, T1), (t2, T2))
     return df
 
+def interpolate_pd(df):
+    
+    # The limit_direction is very important for our problem
+    df[["T", "U"]] = df[["T", "U"]].interpolate(method="linear", limit=12, limit_direction="both")  
+    df[["PMER"]] = df[["PMER"]].interpolate(method="linear", limit=24, limit_direction="both")  
+    df['RR1'] = df['RR1'].fillna(0.0)
 
+    # After interpolation we fill any NaN with the column median
+    for col in ['T', 'U', 'FF', 'PMER']:
+        df[col] = df[col].fillna(df[col].median())
+    
+    
 
 def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
     data_dir = Path(PATH_FILES)
@@ -299,21 +310,7 @@ def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
         print(f"Dataset {os.path.basename(path_f)} was cleaned and saved with success")
         print("# -------------------------------------------------------------------#\n")
 
-
-def interpolate_pd(df):
-    
-    # The limit_direction is very important for our problem
-    df[["T", "U"]] = df[["T", "U"]].interpolate(method="linear", limit=12, limit_direction="both")  
-    df[["PMER"]] = df[["PMER"]].interpolate(method="linear", limit=24, limit_direction="both")  
-    df['RR1'] = df['RR1'].fillna(0.0)
-
-    # After interpolation we fill any NaN with the column median
-    for col in ['T', 'U', 'FF', 'PMER']:
-        df[col] = df[col].fillna(df[col].median())
-    
-    
-
-        
+    print(f"\n\nEverything has been successfully saved in {PATH_TOSAVE}")
     
     
     
