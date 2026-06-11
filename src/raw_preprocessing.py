@@ -22,12 +22,13 @@ def conso_preprocess(PATH_CONSO):
 
     conso = conso.shift(axis=1)
     conso["Périmètre"] = conso.index
-    conso = conso.reset_index()
-    conso = conso.drop(["index"], axis=1)
+    #conso = conso.drop(["index"], axis=1)
     conso = conso[conso["Consommation"].notna()]
     conso = conso[["Date", "Heures", "Consommation"]]
     conso["Date"] = conso["Date"].apply(lambda x : datetime.strptime(x, "%Y-%m-%d").date())
     conso["Heures"] = conso["Heures"].apply(lambda x : datetime.strptime(x, "%H:%M").time())
+    conso = conso.reset_index(drop=True)
+
 
     return conso
 
@@ -253,7 +254,7 @@ def interpolate_pd(df):
 def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
     data_dir = Path(PATH_FILES)
     cols_to_keep = [
-        'NUM_POSTE',        # station ID : identifies the city
+        'NUM_POSTE',        # identifies the city
         'LAT', 'LON',       # coordinates: used to query Open-Meteo
         'AAAAMMJJHH',       # timestamp
         # Usefull features that we can found with the API of open-meteo
@@ -268,51 +269,121 @@ def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
 
 
     for path_f in data_dir.glob("*.gz"):
-        num = re.findall(r'\d+', os.path.basename(path_f))[0]
-        print("Loading the file of the department n°", num, "...")
-        df = pd.read_csv(path_f, sep =';', compression="gzip")[cols_to_keep]
-        print("File loaded with success")
-
-        print("Adding the Date and Hours")
-        df["Date"] = df["AAAAMMJJHH"].apply(lambda x : str(str(x)[:8]))
-        df["Date"] = df["Date"].apply(lambda x : datetime.strptime(x, '%Y%m%d').date())
-        
-        df["Heures"] = df["AAAAMMJJHH"].apply(lambda x : str(str(x)[8:]) + ':00')
-        df["Heures"] = df["Heures"].apply(lambda x : datetime.strptime(x, '%H:%M').time())
-        
-        df = df.drop("AAAAMMJJHH", axis=1)
-        assert len(df["Heures"].unique()) == 24, "There are missing time frames"
-
-        
-        df = df[
-            (df["Date"]>= min_date) & 
-            (df["Date"]<= max_date)
-            ]
-        
-        print(f"Before selecting the best station for department n°{num}\n")
-        monitoring_nan(df)
-        df = select_best_station(df, conso)
-        print(f"\nAfter selecting the best station for departement n°{num}\n")
-        monitoring_nan(df)
-
-        print("Adding the half-hour time units\n")
-        df = half_hour(df, conso)
-
-        print("Interpolation of the columns")
-        interpolate_pd(df)
-
-        print("After interpolation : \n")
-        monitoring_nan(df)
-
         output_path = Path(PATH_TOSAVE) / path_f.with_suffix("").with_suffix(".parquet").name
-        df.to_parquet(output_path, index=False)
-        
-        print(f"Dataset {os.path.basename(path_f)} was cleaned and saved with success")
-        print("# -------------------------------------------------------------------#\n")
+        num = re.findall(r'\d+', os.path.basename(path_f))[0]
+
+        if not output_path.exists():
+            print("Loading the file of the department n°", num, "...")
+            df = pd.read_csv(path_f, sep =';', compression="gzip")[cols_to_keep]
+            print("File loaded with success")
+    
+            print("Adding the Date and Hours")
+            df["Date"] = df["AAAAMMJJHH"].apply(lambda x : str(str(x)[:8]))
+            df["Date"] = df["Date"].apply(lambda x : datetime.strptime(x, '%Y%m%d').date())
+            
+            df["Heures"] = df["AAAAMMJJHH"].apply(lambda x : str(str(x)[8:]) + ':00')
+            df["Heures"] = df["Heures"].apply(lambda x : datetime.strptime(x, '%H:%M').time())
+            
+            df = df.drop("AAAAMMJJHH", axis=1)
+            assert len(df["Heures"].unique()) == 24, "There are missing time frames"
+    
+            
+            df = df[
+                (df["Date"]>= min_date) & 
+                (df["Date"]<= max_date)
+                ]
+            
+            print(f"Before selecting the best station for department n°{num}\n")
+            monitoring_nan(df)
+            df = select_best_station(df, conso)
+            print(f"\nAfter selecting the best station for departement n°{num}\n")
+            monitoring_nan(df)
+    
+            print("Adding the half-hour time units\n")
+            df = half_hour(df, conso)
+    
+            print("Interpolation of the columns")
+            interpolate_pd(df)
+    
+            print("After interpolation : \n")
+            monitoring_nan(df)
+    
+            df.to_parquet(output_path, index=False)
+            
+            print(f"Dataset {os.path.basename(path_f)} was cleaned and saved with success")
+            print("# -------------------------------------------------------------------#\n")
+        else : 
+            print(f"The file for the department n°{num} already exists")
 
     print(f"\n\nEverything has been successfully saved in {PATH_TOSAVE}")
     
     
+
+def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
+    """
+    This function merges the energy consumption dataset with the weather dataset. It keeps the temperature columns of each French department and calculates the population-weighted average for the other columns.
+
+    1. We add a department number prefixe to the columns of each dataset.
+    2. We keep the temperature columns
+    3. We multiply the other columns by the population of the department and store it (stack it to a temporary dataframe)
+    4. We calculate the mean of each row of the temporary dataset
+    5. We concatenate it to the new dataset
+    """
+    
+    data_dir = Path(PATH_FILES)
+    station_population = {
+        '13': 2087658,   # Bouches-du-Rhône 
+        '21': 540100,   # Cote d'Or        
+        '31': 1471468,   # Haute-Garonne    
+        '33': 1690493,   # Gironde           
+        '35': 1120666,   # Ille-et-Vilaine   
+        '44': 1487570,   # Loire-Atlantique  
+        '45': 691268,    # Loiret            
+        '59': 2615635,  # Nord              
+        '67': 1163810,  # Bas-Rhin          
+        '69': 1914667,   # Rhône             
+        '75': 2103778,   # Paris
+        '76': 1260964,   # Seine-Maritime    
+    }
+
+    # We normalize them to sum to 1 in order to keep the same units
+    total_pop = sum(station_population.values())
+    weights = {city: pop / total_pop for city, pop in station_population.items()}
+    
+    cols = ['U', 'FF', 'PMER', 'RR1']
+    test = np.zeros(shape = (conso.shape[0], len(cols)))
+    df_temp = pd.DataFrame(test, columns = cols)
+
+    for path_f in data_dir.glob("*.parquet"):
+
+        #We store the poupalation-weighted columns
+        df = pd.read_parquet(path_f)
+        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
+
+        population = weights[prefix]
+        df_temp += (df[cols] * population)
+
+        # We add the temperature columns
+        df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them
+        conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
+
+    df_temp /= len(station_population)
+    print("\nDIVISION : ", df_temp)
+    conso = pd.concat([conso, df_temp], axis=1)
+    print("\nCONSO PRINT : ", conso)
+
+    output_path = Path(PATH_TOSAVE) / "conso_v1.parquet"
+    conso.to_parquet(output_path)
+    
+    
+        
+        
+        
+
+        
+
+        
+
     
             
     
