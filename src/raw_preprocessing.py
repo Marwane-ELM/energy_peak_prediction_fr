@@ -38,7 +38,7 @@ def conso_preprocess(PATH_CONSO):
 
 def is_holiday(date, zone, holiday_ranges):
     #date_dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
-    return any(start <= date < end for _, start, end in holiday_ranges[zone])
+    return any(start <= date < end for _, start, end in holiday_ranges[zone]) + 0
 
 
 def name_holiday(x, holiday_ranges):
