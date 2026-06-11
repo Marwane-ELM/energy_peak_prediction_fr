@@ -368,9 +368,7 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
         conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
 
     df_temp /= len(station_population)
-    print("\nDIVISION : ", df_temp)
     conso = pd.concat([conso, df_temp], axis=1)
-    print("\nCONSO PRINT : ", conso)
 
     output_path = Path(PATH_TOSAVE) / "conso_v1.parquet"
     conso.to_parquet(output_path)
