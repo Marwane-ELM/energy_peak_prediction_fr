@@ -11,7 +11,7 @@ from datetime import datetime
 
 def conso_preprocess(PATH_CONSO):
     """
-    Input : The path to the raw consommation datasets
+    Input : The path to the raw energy consumption datasets
     Output : A new dataset composed by the merged + cleaned + preprocessed raw datasets located in PATH_CONSO/
     """
 
@@ -37,7 +37,6 @@ def conso_preprocess(PATH_CONSO):
 # ------- SCHOOL HOLIDAYS --------
 
 def is_holiday(date, zone, holiday_ranges):
-    #date_dt = datetime.strptime(date_str[:10], "%Y-%m-%d")
     return any(start <= date < end for _, start, end in holiday_ranges[zone]) + 0
 
 
@@ -65,7 +64,6 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     This function takes as input the dataset on energy consumption and 2 paths depending on where it's called from
     """
 
-    conso = conso_df
     holidays = pd.read_excel(f"{PATH_HOLIDAYS}calendrier_gouv.xlsx")
     holidays["Zones"] = holidays["Zones"].apply(lambda d: d.replace(' ', '_'))
 
@@ -77,7 +75,7 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     "Vacances d'Été"
     ]
     zones = ["Zone_A", "Zone_B", "Zone_C"]
-    new_holidays = conso[["Date"]]
+    new_holidays = conso_df[["Date"]]
     
     # ---- 
     for zone in zones:    
@@ -126,8 +124,9 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
         new_holidays[zone] = new_holidays["Date"].apply(lambda d : is_holiday(d, zone, holiday_ranges))
     
     new_holidays = new_holidays.apply(lambda x: name_holiday(x, holiday_ranges), axis=1)
-    
-    return new_holidays
+    conso_df = pd.concat([conso_df, new_holidays.drop("Date", axis=1)], axis=1)
+
+    return conso_df
 
 
 # --------------------------------
@@ -141,6 +140,7 @@ def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
         ]
     public_holidays = set(feries["date"])
     conso_df["public_holidays"] = pd.to_datetime(conso_df["Date"]).isin(public_holidays) + 0
+    return conso_df
     
 
 
@@ -157,7 +157,7 @@ def monitoring_nan(df):
         lambda x: x.isnull().mean() * 100))
 
 
-def select_best_station(df, conso):    
+def select_best_station(df, conso):   
     grid_scores = df.groupby('NUM_POSTE')[['T', 'U', 'FF', 'PMER', 'RR1']].apply(lambda x: x.isnull().mean() * 100)
     grid_scores_array = np.array(grid_scores) 
     x, y = grid_scores_array.shape
@@ -207,6 +207,7 @@ def time_to_float(t):
 
 
 def interpolation_col(df):
+    df = df.copy()
     df = df.reset_index(drop=True)
     columns = list(set(df.columns) - set(["NUM_POSTE", "LAT", "LON", "Date", "Heures"]))
     
@@ -239,7 +240,6 @@ def interpolation_col(df):
     return df
 
 def interpolate_pd(df):
-    
     # The limit_direction is very important for our problem
     df[["T", "U"]] = df[["T", "U"]].interpolate(method="linear", limit=12, limit_direction="both")  
     df[["PMER"]] = df[["PMER"]].interpolate(method="linear", limit=24, limit_direction="both")  
@@ -248,10 +248,15 @@ def interpolate_pd(df):
     # After interpolation we fill any NaN with the column median
     for col in ['T', 'U', 'FF', 'PMER']:
         df[col] = df[col].fillna(df[col].median())
+    return df
     
     
 
 def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
+    """
+    This function preprocesses all the weather files (.gz) from PATH_FILES and saves them
+    in PATH_TOSAVE in .parquet format (to save space)
+    """
     data_dir = Path(PATH_FILES)
     cols_to_keep = [
         'NUM_POSTE',        # identifies the city
@@ -274,7 +279,8 @@ def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
 
         if not output_path.exists():
             print("Loading the file of the department n°", num, "...")
-            df = pd.read_csv(path_f, sep =';', compression="gzip")[cols_to_keep]
+            # We load the dataset and keep the essential columns
+            df = pd.read_csv(path_f, sep =';', compression="gzip")[cols_to_keep] 
             print("File loaded with success")
     
             print("Adding the Date and Hours")
@@ -303,7 +309,7 @@ def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
             df = half_hour(df, conso)
     
             print("Interpolation of the columns")
-            interpolate_pd(df)
+            df = interpolate_pd(df)
     
             print("After interpolation : \n")
             monitoring_nan(df)
@@ -321,9 +327,9 @@ def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
 
 def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
     """
-    This function merges the energy consumption dataset with the weather dataset. It keeps the temperature columns of each French department and calculates the population-weighted average for the other columns.
+    This function merges the energy consumption dataset with the existing weather datasets. It keeps the temperature columns of each French department and calculates the population-weighted average for the other columns.
     """
-    
+          
     data_dir = Path(PATH_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
@@ -366,12 +372,12 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
 
     output_path = Path(PATH_TOSAVE) / "conso_v1.parquet"
     conso.to_parquet(output_path)
+    return conso
     
     
         
         
 def dataset_v2(conso, PATH_FILES, PATH_TOSAVE):
-    
     data_dir = Path(PATH_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
@@ -411,7 +417,7 @@ def dataset_v2(conso, PATH_FILES, PATH_TOSAVE):
 
     
 def dataset_v3(conso, PATH_FILES, PATH_TOSAVE):
-    
+
     data_dir = Path(PATH_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
