@@ -322,12 +322,6 @@ def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
 def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
     """
     This function merges the energy consumption dataset with the weather dataset. It keeps the temperature columns of each French department and calculates the population-weighted average for the other columns.
-
-    1. We add a department number prefixe to the columns of each dataset.
-    2. We keep the temperature columns
-    3. We multiply the other columns by the population of the department and store it (stack it to a temporary dataframe)
-    4. We calculate the mean of each row of the temporary dataset
-    5. We concatenate it to the new dataset
     """
     
     data_dir = Path(PATH_FILES)
@@ -346,7 +340,7 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
         '76': 1260964,   # Seine-Maritime    
     }
 
-    # We normalize them to sum to 1 in order to keep the same units
+    # We normalize them in order to keep the same weather units
     total_pop = sum(station_population.values())
     weights = {city: pop / total_pop for city, pop in station_population.items()}
     
@@ -376,13 +370,85 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
     
         
         
+def dataset_v2(conso, PATH_FILES, PATH_TOSAVE):
+    
+    data_dir = Path(PATH_FILES)
+    station_population = {
+        '13': 2087658,   # Bouches-du-Rhône 
+        '21': 540100,   # Cote d'Or        
+        '31': 1471468,   # Haute-Garonne    
+        '33': 1690493,   # Gironde           
+        '35': 1120666,   # Ille-et-Vilaine   
+        '44': 1487570,   # Loire-Atlantique  
+        '45': 691268,    # Loiret            
+        '59': 2615635,  # Nord              
+        '67': 1163810,  # Bas-Rhin          
+        '69': 1914667,   # Rhône             
+        '75': 2103778,   # Paris
+        '76': 1260964,   # Seine-Maritime    
+    }
 
-        
+    # We normalize them in order to keep the same units
+    total_pop = sum(station_population.values())
+    weights = {city: pop / total_pop for city, pop in station_population.items()}
+    
+    cols = ['T', 'U', 'FF', 'PMER', 'RR1']
+    test = np.zeros(shape = (conso.shape[0], len(cols)))
+    df_temp = pd.DataFrame(test, columns = cols)
 
-        
+    for path_f in data_dir.glob("*.parquet"):
+
+        df = pd.read_parquet(path_f)
+        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
+        population = weights[prefix]
+        df_temp += (df[cols] * population)
+
+    df_temp /= len(station_population)
+    conso = pd.concat([conso, df_temp], axis=1)
+
+    output_path = Path(PATH_TOSAVE) / "conso_v2.parquet"
+    conso.to_parquet(output_path)
 
     
-            
+def dataset_v3(conso, PATH_FILES, PATH_TOSAVE):
+    
+    data_dir = Path(PATH_FILES)
+    station_population = {
+        '13': 2087658,   # Bouches-du-Rhône 
+        '33': 1690493,   # Gironde           
+        '44': 1487570,   # Loire-Atlantique   
+        '59': 2615635, # Nord              
+        '69': 1914667,   # Rhône             
+        '75': 2103778,   # Paris
+    }
+
+     # We normalize them in order to keep the same units
+    total_pop = sum(station_population.values())
+    weights = {city: pop / total_pop for city, pop in station_population.items()}
+    
+    cols = ['U', 'FF', 'PMER', 'RR1']
+    test = np.zeros(shape = (conso.shape[0], len(cols)))
+    df_temp = pd.DataFrame(test, columns = cols)
+
+    for path_f in data_dir.glob("*.parquet"):
+
+        #We store the poupalation-weighted columns
+        df = pd.read_parquet(path_f)
+        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
+        
+        if prefix in station_population.keys():
+            population = weights[prefix]
+            df_temp += (df[cols] * population)
+    
+            # We add the temperature columns
+            df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them
+            conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
+
+    df_temp /= len(station_population)
+    conso = pd.concat([conso, df_temp], axis=1)
+
+    output_path = Path(PATH_TOSAVE) / "conso_v3.parquet"
+    conso.to_parquet(output_path)
     
 
 
