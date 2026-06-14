@@ -354,24 +354,28 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
 
-    for path_f in data_dir.glob("*.parquet"):
-
-        #We store the poupalation-weighted columns
-        df = pd.read_parquet(path_f)
-        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
-
-        population = weights[prefix]
-        df_temp += (df[cols] * population)
-
-        # We add the temperature columns
-        df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them
-        conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
-
-    df_temp /= len(station_population)
-    conso = pd.concat([conso, df_temp], axis=1)
-
     output_path = Path(PATH_TOSAVE) / "conso_v1.parquet"
-    conso.to_parquet(output_path)
+    if output_path.exists() : 
+        print(f"The file {output_path} already exists")
+    else : 
+        for path_f in data_dir.glob("*.parquet"):
+    
+            #We store the poupalation-weighted columns
+            df = pd.read_parquet(path_f)
+            prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
+    
+            population = weights[prefix]
+            df_temp += (df[cols] * population)
+    
+            # We add the temperature columns
+            df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them
+            conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
+    
+        df_temp /= len(station_population)
+        conso = pd.concat([conso, df_temp], axis=1)
+    
+        conso.to_parquet(output_path)
+        
     return conso
     
     
@@ -401,19 +405,24 @@ def dataset_v2(conso, PATH_FILES, PATH_TOSAVE):
     cols = ['T', 'U', 'FF', 'PMER', 'RR1']
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
-
-    for path_f in data_dir.glob("*.parquet"):
-
-        df = pd.read_parquet(path_f)
-        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
-        population = weights[prefix]
-        df_temp += (df[cols] * population)
-
-    df_temp /= len(station_population)
-    conso = pd.concat([conso, df_temp], axis=1)
-
+    
     output_path = Path(PATH_TOSAVE) / "conso_v2.parquet"
-    conso.to_parquet(output_path)
+    if output_path.exists() : 
+        print(f"The file {output_path} already exists")
+    else:
+        for path_f in data_dir.glob("*.parquet"):
+    
+            df = pd.read_parquet(path_f)
+            prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
+            population = weights[prefix]
+            df_temp += (df[cols] * population)
+    
+        df_temp /= len(station_population)
+        conso = pd.concat([conso, df_temp], axis=1)
+        conso.to_parquet(output_path)
+        
+    return conso
+
 
     
 def dataset_v3(conso, PATH_FILES, PATH_TOSAVE):
@@ -436,25 +445,31 @@ def dataset_v3(conso, PATH_FILES, PATH_TOSAVE):
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
 
-    for path_f in data_dir.glob("*.parquet"):
-
-        #We store the poupalation-weighted columns
-        df = pd.read_parquet(path_f)
-        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
-        
-        if prefix in station_population.keys():
-            population = weights[prefix]
-            df_temp += (df[cols] * population)
-    
-            # We add the temperature columns
-            df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them
-            conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
-
-    df_temp /= len(station_population)
-    conso = pd.concat([conso, df_temp], axis=1)
-
     output_path = Path(PATH_TOSAVE) / "conso_v3.parquet"
-    conso.to_parquet(output_path)
+    if output_path.exists() : 
+        print(f"The file {output_path} already exists")
+    else:
+        for path_f in data_dir.glob("*.parquet"):
+    
+            #We store the poupalation-weighted columns
+            df = pd.read_parquet(path_f)
+            prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
+            
+            if prefix in station_population.keys():
+                population = weights[prefix]
+                df_temp += (df[cols] * population)
+        
+                # We add the temperature columns
+                df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them
+                conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
+    
+        df_temp /= len(station_population)
+        conso = pd.concat([conso, df_temp], axis=1)
+
+        # We save it to do some experiments in the notebook
+        conso.to_parquet(output_path)
+    return conso
+
     
 
 
