@@ -350,7 +350,7 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
     total_pop = sum(station_population.values())
     weights = {city: pop / total_pop for city, pop in station_population.items()}
     
-    cols = ['U', 'FF', 'PMER', 'RR1']
+    cols = ['T', 'U', 'FF', 'PMER', 'RR1']
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
 
@@ -441,7 +441,7 @@ def dataset_v3(conso, PATH_FILES, PATH_TOSAVE):
     total_pop = sum(station_population.values())
     weights = {city: pop / total_pop for city, pop in station_population.items()}
     
-    cols = ['U', 'FF', 'PMER', 'RR1']
+    cols = ['T', 'U', 'FF', 'PMER', 'RR1']
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
 
