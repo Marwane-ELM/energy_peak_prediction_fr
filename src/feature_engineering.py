@@ -16,7 +16,6 @@ def date_and_hour(df):
     #(Some models will not be able to be trained on a dataset having columns containing "datetime" format)
     df["year"] = df["full_date"].dt.year
     df["month"] = df["full_date"].dt.month
-    df["day_of_month"] = df["full_date"].dt.day
 
     # We only keep the decimal value of the time (we don"t split the hour and minute cuz it"s useless)
     df["hour"] = df["full_date"].dt.hour + (df["full_date"].dt.minute / 60)
@@ -35,9 +34,6 @@ def cyclical_encoding(df):
     
     df["day_of_week_sin"]   = np.sin(2 * np.pi * df["day_of_week"] / 7)
     df["day_of_week_cos"]   = np.cos(2 * np.pi * df["day_of_week"] / 7)
-
-    df["day_of_month_sin"]   = np.sin(2 * np.pi * df["day_of_month"] / 31)
-    df["day_of_month_cos"]   = np.cos(2 * np.pi * df["day_of_month"] / 31)
     
     df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
     df["month_cos"] = np.cos(2 * np.pi * df["month"] / 12)
@@ -45,7 +41,7 @@ def cyclical_encoding(df):
     return df
 
 def lagged_consumption(df):
-    lagged_values = [1, 24, 48, 168, 336]  # last 30 min, hour, day (at same hour), week and 2 week
+    lagged_values = [1, 24, 48, 168]  # last 30 min, hour, day (at same hour), week and 2 week
     for l in lagged_values:
         df[f"lagged_{l}"] = df["Consommation"].shift(l)
 
@@ -187,5 +183,10 @@ def interactions_tree(df):
 
     return df
 
-def drop_raw_time_columns(df):
-    return None
+def drop_columns(df):
+    df = df.drop(['hour', 'month', 'day_of_week'], axis=1)
+    return df
+
+def drop_columns(df):
+    df = df.dropna()
+    return df
