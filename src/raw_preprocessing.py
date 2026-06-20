@@ -252,10 +252,10 @@ def interpolate_pd(df):
     
     
 
-def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
+def weather_clean_all(conso, PATH_FILES, PATH_TO_SAVE):
     """
     This function preprocesses all the weather files (.gz) from PATH_FILES and saves them
-    in PATH_TOSAVE in .parquet format (to save space)
+    in PATH_TO_SAVE in .parquet format (to save space)
     """
     data_dir = Path(PATH_FILES)
     cols_to_keep = [
@@ -274,7 +274,7 @@ def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
 
 
     for path_f in data_dir.glob("*.gz"):
-        output_path = Path(PATH_TOSAVE) / path_f.with_suffix("").with_suffix(".parquet").name
+        output_path = Path(PATH_TO_SAVE) / path_f.with_suffix("").with_suffix(".parquet").name
         num = re.findall(r'\d+', os.path.basename(path_f))[0]
 
         if not output_path.exists():
@@ -321,15 +321,19 @@ def weather_clean_all(conso, PATH_FILES, PATH_TOSAVE):
         else : 
             print(f"The file for the department n°{num} already exists")
 
-    print(f"\n\nEverything has been successfully saved in {PATH_TOSAVE}")
+    print(f"\n\nEverything has been successfully saved in {PATH_TO_SAVE}")
     
     
 
-def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
+def dataset_v1(conso, PATH_FILES, PATH_TO_SAVE):
     """
     This function merges the energy consumption dataset with the existing weather datasets. It keeps the temperature columns of each French department and calculates the population-weighted average for the other columns.
     """
-          
+    output_path = Path(PATH_TO_SAVE) / "conso_v1.parquet"
+    if output_path.exists():
+        print(f"The file {output_path} already exists")
+        return pd.read_parquet(output_path)
+
     data_dir = Path(PATH_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
@@ -354,7 +358,6 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
 
-    output_path = Path(PATH_TOSAVE) / "conso_v1.parquet"
     if output_path.exists() : 
         print(f"The file {output_path} already exists")
     else : 
@@ -365,15 +368,12 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
             prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
     
             population = weights[prefix]
-            df_temp += (df[cols] * population)
+            df_temp += (df[cols].values * population)
     
             # We add the temperature columns
-            df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them
-            conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
-    
-        df_temp /= len(station_population)
-        conso = pd.concat([conso, df_temp], axis=1)
-    
+            df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them    
+            conso = pd.concat([conso, df[['T']].rename(columns={'T': f'{prefix}T'})], axis=1)  
+            
         conso.to_parquet(output_path)
         
     return conso
@@ -381,7 +381,13 @@ def dataset_v1(conso, PATH_FILES, PATH_TOSAVE):
     
         
         
-def dataset_v2(conso, PATH_FILES, PATH_TOSAVE):
+def dataset_v2(conso, PATH_FILES, PATH_TO_SAVE):
+    output_path = Path(PATH_TO_SAVE) / "conso_v2.parquet"
+    if output_path.exists():
+        print(f"The file {output_path} already exists")
+        return pd.read_parquet(output_path)
+
+
     data_dir = Path(PATH_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
@@ -406,7 +412,6 @@ def dataset_v2(conso, PATH_FILES, PATH_TOSAVE):
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
     
-    output_path = Path(PATH_TOSAVE) / "conso_v2.parquet"
     if output_path.exists() : 
         print(f"The file {output_path} already exists")
     else:
@@ -415,63 +420,55 @@ def dataset_v2(conso, PATH_FILES, PATH_TOSAVE):
             df = pd.read_parquet(path_f)
             prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
             population = weights[prefix]
-            df_temp += (df[cols] * population)
+            df_temp += df[cols].values * population
     
-        df_temp /= len(station_population)
         conso = pd.concat([conso, df_temp], axis=1)
         conso.to_parquet(output_path)
         
     return conso
 
 
+
+def dataset_v3(conso, PATH_FILES, PATH_TO_SAVE):
+
+    output_path = Path(PATH_TO_SAVE) / "conso_v3.parquet"
     
-def dataset_v3(conso, PATH_FILES, PATH_TOSAVE):
+    # If file exists, load and return it directly
+    if output_path.exists():
+        print(f"The file {output_path} already exists")
+        return pd.read_parquet(output_path)  # ← was returning conso without weather cols
 
     data_dir = Path(PATH_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
         '33': 1690493,   # Gironde           
         '44': 1487570,   # Loire-Atlantique   
-        '59': 2615635, # Nord              
+        '59': 2615635,   # Nord              
         '69': 1914667,   # Rhône             
         '75': 2103778,   # Paris
     }
 
-     # We normalize them in order to keep the same units
     total_pop = sum(station_population.values())
     weights = {city: pop / total_pop for city, pop in station_population.items()}
     
     cols = ['T', 'U', 'FF', 'PMER', 'RR1']
-    test = np.zeros(shape = (conso.shape[0], len(cols)))
-    df_temp = pd.DataFrame(test, columns = cols)
+    df_temp = pd.DataFrame(
+        np.zeros(shape=(conso.shape[0], len(cols))),
+        columns=cols
+    )
 
-    output_path = Path(PATH_TOSAVE) / "conso_v3.parquet"
-    if output_path.exists() : 
-        print(f"The file {output_path} already exists")
-    else:
-        for path_f in data_dir.glob("*.parquet"):
-    
-            #We store the poupalation-weighted columns
-            df = pd.read_parquet(path_f)
-            prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
-            
-            if prefix in station_population.keys():
-                population = weights[prefix]
-                df_temp += (df[cols] * population)
+    for path_f in data_dir.glob("*.parquet"):
+        df = pd.read_parquet(path_f)
+        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
         
-                # We add the temperature columns
-                df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them
-                conso = pd.concat([conso, df[f"{prefix}T"]], axis=1)
-    
-        df_temp /= len(station_population)
-        conso = pd.concat([conso, df_temp], axis=1)
+        if prefix in station_population:
+            population = weights[prefix]
+            df_temp += df[cols].values * population
+            conso = pd.concat([conso, df[['T']].rename(columns={'T': f'{prefix}T'})], axis=1)
 
-        # We save it to do some experiments in the notebook
-        conso.to_parquet(output_path)
+    
+    conso = pd.concat([conso, df_temp], axis=1)
+    conso.to_parquet(output_path)
+    
     return conso
-
-    
-
-
-
 

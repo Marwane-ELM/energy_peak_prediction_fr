@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import os.path
 from datetime import datetime
+import src.raw_preprocessing as rp
 
 
 def date_and_hour(df):
@@ -185,8 +186,77 @@ def interactions_tree(df):
 
 def drop_columns(df):
     df = df.drop(['hour', 'month', 'day_of_week'], axis=1)
-    return df
-
-def drop_columns(df):
     df = df.dropna()
     return df
+
+def feature_engineering(df, num_version, PATH_FILES, PATH_TO_SAVE, PATH_SAVE_LINEAR, PATH_SAVE_TREE):
+    """
+    The path should also include the name of the file (dir1/dir2/conso_v1_linear.parquet)
+    """
+
+    if num_version == 1:
+        df = rp.dataset_v1(df, PATH_FILES, PATH_TO_SAVE)
+    elif num_version == 2:
+        df = rp.dataset_v2(df, PATH_FILES, PATH_TO_SAVE)
+    elif num_version == 3:
+        df = rp.dataset_v3(df, PATH_FILES, PATH_TO_SAVE)
+    else : 
+        print("Enter a valid number among 1, 2 and 3")
+        return None
+
+
+    datasets = [None, None]  # (df_linear, df_tree)
+    output_path_linear = Path(PATH_SAVE_LINEAR)
+    output_path_tree = Path(PATH_SAVE_TREE)
+
+    if output_path_linear.exists() and output_path_tree.exists():
+        print(f"{output_path_tree} and {output_path_linear} already exist")
+        df_linear = pd.read_parquet(output_path_linear)
+        df_tree = pd.read_parquet(output_path_tree)
+        datasets[0], datasets[1] = df_linear, df_tree
+
+    else :
+        df = date_and_hour(df)
+        df = lagged_consumption(df)
+        df = cyclical_encoding(df)
+        df = rolling_window(df)
+        df = trend(df)
+
+        # We check if dataset_linear already exists
+        if not output_path_linear.exists():
+            df_linear = df.copy()
+            df_linear = seasons_linear(df_linear)
+            df_linear = interactions_linear(df_linear)
+
+            df_linear.to_parquet(PATH_SAVE_LINEAR)
+            print(f"{PATH_SAVE_LINEAR} has been successfully saved")
+        else :
+            df_linear = pd.read_parquet(output_path_linear)
+            print(f"{output_path_linear} already exist")
+
+        datasets[0] = df_linear
+        
+        # We check if dataset_tree already exists
+        if not output_path_tree.exists():
+            df_tree = df.copy()
+            df_tree = seasons_tree(df_tree)
+            df_tree = interactions_tree(df_tree)
+
+            df_tree.to_parquet(PATH_SAVE_TREE)
+            print(f"{PATH_SAVE_TREE} has been successfully saved")
+
+        else :
+            df_tree = pd.read_parquet(output_path_tree)
+            print(f"{output_path_tree} already exist")
+        
+        datasets[1] = df_tree
+
+    return datasets
+
+    
+
+
+        
+
+    
+    
