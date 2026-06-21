@@ -49,6 +49,8 @@ def lagged_consumption(df):
     return df
 
 
+
+# We gonna use it after the data split to avoid data leakage during the training
 def rolling_window(df):
     df["rolling_mean_24h"] = df["Consommation"].shift(1).rolling(24).mean()
     df["rolling_std_24h"]  = df["Consommation"].shift(1).rolling(24).std()
@@ -58,8 +60,9 @@ def rolling_window(df):
 
     return df
 
+# We gonna use it after the data split to avoid data leakage during the training
 
-def trend(df):
+def lagged_trend(df):
     #how much did it change since last 30 minutes
     df["consumption_diff_1"]  = df["Consommation"].diff(1)    
     #How much did it change since yesterday
@@ -189,6 +192,8 @@ def drop_columns(df):
     df = df.dropna()
     return df
 
+
+
 def feature_engineering(df, num_version, PATH_FILES, PATH_TO_SAVE, PATH_SAVE_LINEAR, PATH_SAVE_TREE):
     """
     The path should also include the name of the file (dir1/dir2/conso_v1_linear.parquet)
@@ -219,8 +224,8 @@ def feature_engineering(df, num_version, PATH_FILES, PATH_TO_SAVE, PATH_SAVE_LIN
         df = date_and_hour(df)
         df = lagged_consumption(df)
         df = cyclical_encoding(df)
-        df = rolling_window(df)
-        df = trend(df)
+        #df = rolling_window(df)
+        #df = lagged_trend(df)
 
         # We check if dataset_linear already exists
         if not output_path_linear.exists():
