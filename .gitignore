@@ -22,3 +22,10 @@ artifacts/*
 
 # Jupyter
 .ipynb_checkpoints/
+
+# MLflow
+mlflow.db
+mlartifacts/
+doc/mlartifacts/
+doc/mlflow.db
+notebooks/mlflow.db
