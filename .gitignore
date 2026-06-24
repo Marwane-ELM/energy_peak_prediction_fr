@@ -29,3 +29,4 @@ mlartifacts/
 doc/mlartifacts/
 doc/mlflow.db
 notebooks/mlflow.db
+*.db

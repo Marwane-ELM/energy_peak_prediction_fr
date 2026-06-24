@@ -41,37 +41,45 @@ def cyclical_encoding(df):
 
     return df
 
-def lagged_consumption(df):
-    lagged_values = [1, 24, 48, 168]  # last 30 min, hour, day (at same hour), week and 2 week
-    for l in lagged_values:
-        df[f"lagged_{l}"] = df["Consommation"].shift(l)
-
-    return df
-
-
-
-# We gonna use it after the data split to avoid data leakage during the training
-def rolling_window(df):
-    df["rolling_mean_24h"] = df["Consommation"].shift(1).rolling(24).mean()
-    df["rolling_std_24h"]  = df["Consommation"].shift(1).rolling(24).std()
-    df["rolling_mean_7d"]  = df["Consommation"].shift(1).rolling(168).mean()
-    df["rolling_max_24h"]  = df["Consommation"].shift(1).rolling(24).max()
-    df["rolling_min_24h"]  = df["Consommation"].shift(1).rolling(24).min()
-
-    return df
-
-# We gonna use it after the data split to avoid data leakage during the training
-
-def lagged_trend(df):
-    #how much did it change since last 30 minutes
-    df["consumption_diff_1"]  = df["Consommation"].diff(1)    
-    #How much did it change since yesterday
-    df["consumption_diff_48"] = df["Consommation"].diff(48)
+def lagged_consumption(df, horizon_shift=0):
     
-    # Percentage change
-    df["consumption_pct_change_1"]  = df["Consommation"].pct_change(1)
-    df["consumption_pct_change_48"] = df["Consommation"].pct_change(48)
+    """We add the horizon_shift to the lagged values in order to do multi-steps forecasting.
+    Indeed, if we want to predict the energy consumption in 5 hours (10 rows of 30 min timestamp), we will not be
+    able to get the same lag data as the next 30 min timestamp. 
+    For our example we should add (5 * 2 = 10) to the lagged values. 
+    """
+    lagged_values = [1, 2, 48, 336]  # last 30 min, hour, day (at same hour) and last week
+    for l in lagged_values:
+        df.loc[:, f"lagged_{l}"] = df["Consommation"].shift(l + horizon_shift)
+
     return df
+
+
+
+def rolling_window(df, horizon_shift=0):
+    shift = 1 + horizon_shift  # shift(1) for one-step and shift(1+h) for multi-step
+    conso = df["Consommation"].shift(shift)
+    df.loc[:, "rolling_mean_24h"] = conso.rolling(48).mean()
+    df.loc[:, "rolling_std_24h"] = conso.rolling(48).std()
+    df.loc[:, "rolling_mean_7d"] = conso.rolling(336).mean()
+    df.loc[:, "rolling_std_7d"] = conso.rolling(336).std()
+    df.loc[:, "rolling_max_24h"] = conso.rolling(48).max()
+    df.loc[:, "rolling_min_24h"] = conso.rolling(48).min()
+    return df
+
+
+
+def lagged_trend(df, horizon_shift=0):
+    conso_shifted = df["Consommation"].shift(1 + horizon_shift)
+    
+    df.loc[:, "consumption_diff_1"] = conso_shifted.diff(1)
+    df.loc[:, "consumption_diff_48"] = conso_shifted.diff(48)
+    df.loc[:, "consumption_pct_change_1"] = conso_shifted.pct_change(1)
+    df.loc[:, "consumption_pct_change_48"] = conso_shifted.pct_change(48)
+    return df
+
+#def shift_target(target, horizon_shift=0):
+    #target = target.shift(-)
 
 
 def get_season(month):
@@ -162,7 +170,7 @@ def interactions_linear(df):
     df["HDD"] = (base_temp - df["T"]).clip(lower=0)  # heating need
     df["CDD"] = (df["T"] - base_temp).clip(lower=0)  # cooling need
         
-    df = df.dropna()
+    df = drop_useless(df)
     return df
 
 
@@ -187,7 +195,7 @@ def interactions_tree(df):
 
     return df
 
-def drop_columns(df):
+def drop_useless(df):
     df = df.drop(['hour', 'month', 'day_of_week'], axis=1)
     df = df.dropna()
     return df
@@ -222,10 +230,10 @@ def feature_engineering(df, num_version, PATH_FILES, PATH_TO_SAVE, PATH_SAVE_LIN
 
     else :
         df = date_and_hour(df)
-        df = lagged_consumption(df)
         df = cyclical_encoding(df)
-        #df = rolling_window(df)
-        #df = lagged_trend(df)
+        df = lagged_consumption(df)
+        df = rolling_window(df)
+        df = lagged_trend(df)
 
         # We check if dataset_linear already exists
         if not output_path_linear.exists():
