@@ -328,6 +328,7 @@ def weather_clean_all(conso, PATH_FILES, PATH_TO_SAVE):
 def dataset_v1(conso, PATH_FILES, PATH_TO_SAVE):
     """
     This function merges the energy consumption dataset with the existing weather datasets. It keeps the temperature columns of each French department and calculates the population-weighted average for the other columns.
+    12 main departments + weighted average
     """
     output_path = Path(PATH_TO_SAVE) / "conso_v1.parquet"
     if output_path.exists():
@@ -382,6 +383,9 @@ def dataset_v1(conso, PATH_FILES, PATH_TO_SAVE):
         
         
 def dataset_v2(conso, PATH_FILES, PATH_TO_SAVE):
+    """
+    Only weighted averages
+    """
     output_path = Path(PATH_TO_SAVE) / "conso_v2.parquet"
     if output_path.exists():
         print(f"The file {output_path} already exists")
@@ -430,6 +434,9 @@ def dataset_v2(conso, PATH_FILES, PATH_TO_SAVE):
 
 
 def dataset_v3(conso, PATH_FILES, PATH_TO_SAVE):
+    """
+    5 main departments + weighted averages
+    """
 
     output_path = Path(PATH_TO_SAVE) / "conso_v3.parquet"
     
