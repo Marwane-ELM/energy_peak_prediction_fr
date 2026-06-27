@@ -1,23 +1,48 @@
 import pandas as pd
 import numpy as np
+from pathlib import Path
+import mlflow
+import mlflow.sklearn
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import GridSearchCV
 
-from sklearn.linear_model import Ridge
-from sklearn.ensemble import HistGradientBoostingRegressor
+import src.feature_engineering as fe
 
 
 
-def log_models(PATH_DATASET_LINEAR, PATH_DATASET_TREE, best_linear_model, best_tree_based_model, horizons=[1]):
-    log_experiment(PATH_DIR_LINEAR, 'Best models Experiment', best_linear_model, horizons)
-    log_experiment(PATH_DIR_TREE, 'Best models Experiment', best_tree_based_model, horizons)
+def log_models(PATH_DATASET_LINEAR, PATH_DATASET_TREE, best_linear_model, best_tree_based_model, horizons):
+    linear_model_name = type(best_linear_model).__name__
+    tree_based_model_name = type(best_tree_based_model).__name__
+    
+    linear_params = {
+        f"{linear_model_name}__alpha" : np.arange(0.1, 2, 0.3),
+        f"{linear_model_name}__tol" : [1e-3]
+    }
+
+    tree_params = {
+        "loss" : ["squared_error"],
+        "learning_rate" : [0.01],
+        "max_iter" : [100],
+        "max_leaf_nodes" : [32, 42],
+        "max_depth" : [None, 10, 30, 50],
+        "l2_regularization": [0.0, 0.5, 1.0]
+    }
+
+    if horizons is None:
+        horizons = [0]
+    
+    log_experiment(PATH_DATASET_LINEAR, 'Best models Experiment', best_linear_model, horizons, linear_params)
+    log_experiment(PATH_DATASET_TREE, 'Best models Experiment', best_tree_based_model, horizons, tree_params)
     
 
-def log_experiment(PATH_DIR, experiment_name, model, horizons):
-    data_dir = Path(PATH_DIR)
+def log_experiment(PATH_DATASET, experiment_name, model, horizons, param_grid):
+    path_f = Path(PATH_DATASET)
+    dataset_name = path_f.stem
+
 
     mlflow.set_tracking_uri('http://localhost:5000')
     mlflow.set_experiment(experiment_name)
@@ -27,56 +52,89 @@ def log_experiment(PATH_DIR, experiment_name, model, horizons):
        'Vacances de la Toussaint', 'Vacances de Noël', "Vacances d'Hiver",
        'Vacances de Printemps', "Vacances d'Été", 'public_holidays', 'year', 'month', 'hour', 'day_of_week', 'is_weekend']
 
+    cols_to_shift = ['Consommation', 'lagged_1', 'lagged_2', 'lagged_48', 'lagged_336']
+    cols_to_recalculate = ["rolling_mean_24h", "rolling_std_24h", "rolling_mean_7d", "rolling_std_7d", "rolling_max_24h", "rolling_min_24h", "consumption_diff_1", "consumption_diff_48", "consumption_pct_change_1", "consumption_pct_change_48"]
 
-    for path_f in data_dir.glob("*.parquet"):
+    original_df = pd.read_parquet(path_f)
 
-        # We'll preidict
-        for h in horizons:
-            dataset_name = path_f.stem
-            df = pd.read_parquet(path_f)
-            df['Consommatioon'] = df[]
+    for h in horizons:
+
+        df = original_df.copy()
+        # We shift the columns that need it
+        df[cols_to_shift] = df[cols_to_shift].shift(-h)
+        
+        # We delete and recalculate some columns
+        df = df.drop(cols_to_recalculate, axis=1)
+        
+        df = fe.rolling_window(df, horizon_shift = h)
+        df = fe.lagged_trend(df, horizon_shift = h)
+
+        df = df.dropna()
+
+        last_year = df['year'].iloc[-1]
+        train_set = df[df['year'] < last_year].copy()
+        test_set = df[df['year'] == last_year].copy()
+        
+        Y_train = train_set["Consommation"]
+        Y_test = test_set['Consommation']
+        X_train = train_set.drop(["Consommation", "year"], axis=1)
+        X_test  = test_set.drop(["Consommation", "year"], axis=1)
+        
+
+        estimator = model
+        model_name = type(estimator).__name__
+
+        if model_name in {'LinearRegression', 'Ridge', 'Lasso', 'ElasticNet'}:
+            all_cols = X_train.columns.tolist()
+            cols_to_scale  = [col for col in all_cols if col not in cols_to_exclude]
             
-            last_year = df['year'].iloc[-1]
-            train_set = df[df['year'] < last_year].copy()
-            test_set = df[df['year'] == last_year].copy()
+            preprocessor = ColumnTransformer(
+                transformers=[('scaler', StandardScaler(), cols_to_scale)], 
+                remainder='passthrough'
+            )
             
-            Y_train = train_set["Consommation"].shift(-h)
-            Y_test = test_set['Consommation']
-            X_train = train_set.drop(["Consommation", "year"], axis=1)
-            X_test  = test_set.drop(["Consommation", "year"], axis=1)
+            estimator = Pipeline([
+                ('preprocessor', preprocessor),
+                (f'{model_name}', model)
+            ])
+
+        grid = GridSearchCV(
+            estimator=estimator,
+            param_grid=param_grid,
+            cv=5,
+            scoring="neg_root_mean_squared_error",
+            n_jobs = 11
+        )
+                    
+        grid.fit(X_train, Y_train)
+        best_estimator = grid.best_estimator_
+        cv_rmse = -grid.best_score_
+        
+        y_pred = best_estimator.predict(X_test)
+
+        #Scores on the test set
+        rmse = np.sqrt(mean_squared_error(Y_test, y_pred))
+        r2 = r2_score(Y_test, y_pred)
+        mae = mean_absolute_error(Y_test, y_pred)
+        mse = mean_squared_error(Y_test, y_pred)
+        params = grid.best_params_
+
+        run_name = f"{model_name}_{dataset_name}_horizon_{h}"
+        with mlflow.start_run(run_name=run_name):
+            mlflow.log_params(params)
             
-            model_name = type(model).__name__
-    
-            if model_name in {'LinearRegression', 'Ridge', 'Lasso', 'ElasticNet'}:
-                all_cols = X_train.columns.tolist()
-                cols_to_scale  = [col for col in all_cols if col not in cols_to_exclude]
-                
-                preprocessor = ColumnTransformer(
-                    transformers=[('scaler', StandardScaler(), cols_to_scale)], 
-                    remainder='passthrough'
-                )
-                
-                model = Pipeline([
-                    ('preprocessor', preprocessor),
-                    (f'{model_name}', model)
-                ])
-            
-            model.fit(X_train, Y_train)
-            y_pred = model.predict(X_test)
-    
-            r2 = model.score(X_test, Y_test)
-            mae = mean_absolute_error(Y_test, y_pred)
-            mse = mean_squared_error(Y_test, y_pred)
-            params = model.get_params()
-    
-            with mlflow.start_run(run_name=f'{model_name}_{dataset_name}'):
-                mlflow.log_params(params)
-    
-                mlflow.log_metric('r2 score', r2)
-                mlflow.log_metric('mean absolute error', mae)
-                mlflow.log_metric('mean squared error', mse)
-            
-                mlflow.set_tag('Training Info', f'{model_name} for {dataset_name}')
-            
+            mlflow.log_param("cv for grid search", 5)
+            mlflow.log_param("scoring for grid search cv", "neg_root_mean_squared_error")
+
+            mlflow.log_metric('CV root mean squared error', cv_rmse)
+            mlflow.log_metric('root mean squared error', rmse)
+            mlflow.log_metric('r2 score', r2)
+            mlflow.log_metric('mean absolute error', mae)
+            mlflow.log_metric('mean squared error', mse)
+            mlflow.sklearn.log_model(best_estimator, "model")
+        
+            mlflow.set_tag("dataset", dataset_name)
+            mlflow.set_tag("horizon", h)
+            mlflow.set_tag("model", model_name)            
 
     print(f"{experiment_name} successfully saved")

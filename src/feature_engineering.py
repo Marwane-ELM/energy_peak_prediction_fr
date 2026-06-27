@@ -57,7 +57,7 @@ def lagged_consumption(df, horizon_shift=0):
 
 
 def rolling_window(df, horizon_shift=0):
-    shift = 1 + horizon_shift  # shift(1) for one-step and shift(1+h) for multi-step
+    shift = 1 + horizon_shift  # shift(1) for one-step and shift(1+h) for multi-step, with h>0
     conso = df["Consommation"].shift(shift)
     df.loc[:, "rolling_mean_24h"] = conso.rolling(48).mean()
     df.loc[:, "rolling_std_24h"] = conso.rolling(48).std()
@@ -70,7 +70,8 @@ def rolling_window(df, horizon_shift=0):
 
 
 def lagged_trend(df, horizon_shift=0):
-    conso_shifted = df["Consommation"].shift(1 + horizon_shift)
+    shift = 1 + horizon_shift
+    conso_shifted = df["Consommation"].shift(shift)
     
     df.loc[:, "consumption_diff_1"] = conso_shifted.diff(1)
     df.loc[:, "consumption_diff_48"] = conso_shifted.diff(48)
