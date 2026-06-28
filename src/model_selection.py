@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from datetime import datetime
+import joblib
 import mlflow
 import mlflow.sklearn
 
@@ -138,3 +140,72 @@ def log_experiment(PATH_DATASET, experiment_name, model, horizons, param_grid):
             mlflow.set_tag("model", model_name)            
 
     print(f"{experiment_name} successfully saved")
+
+
+
+def dump_model_from_mlflow(experiment_name, PATH_SAVE_FINAL_MODEL):
+    """
+    This function saves in PATH_SAVE_FINAL_MODEL all the best models which perform the best on the given time perdiod horizons (5 hours horizon for example). It also returns the dictionary and the model's name shared by all the models inside of the dictionary.
+    """
+    mlflow.set_tracking_uri('http://localhost:5000')
+    experiment = mlflow.get_experiment_by_name(f"{experiment_name}")
+    runs = mlflow.search_runs(
+        experiment_ids = [experiment.experiment_id],
+        order_by = ['metrics.root_mean_squared_error ASC'],
+        max_results=None
+    )
+
+    # The 2 best estimators from the previous step in the pipeline (the 2 best among all trained models)
+    best_models = runs.sort_values(by="metrics.mean squared error")
+    
+    estimator1 = best_models["tags.model"].unique()[0]
+    estimator2 = best_models["tags.model"].unique()[1]
+
+    dataset_name1 = best_models[best_models["tags.model"] == estimator1]["tags.dataset"].iloc[0]
+    dataset_name2 = best_models[best_models["tags.model"] == estimator2]["tags.dataset"].iloc[0]
+
+    h = 9 
+    query1 = best_models[
+        (best_models["tags.model"] == estimator1) &
+        (best_models["tags.dataset"] == dataset_name1) &
+        (best_models["tags.horizon"].astype(str) == str(h))
+    ]
+    assert len(query1) > 0, f"Aucun run trouvé pour {estimator1}, {dataset_name1}, horizon={h}"
+    
+    query2 = best_models[
+        (best_models["tags.model"] == estimator2) &
+        (best_models["tags.dataset"] == dataset_name2) &
+        (best_models["tags.horizon"].astype(str) == str(h))
+    ]
+    assert len(query2) > 0, f"Aucun run trouvé pour {estimator1}, {dataset_name1}, horizon={h}"
+
+    score1 = query1["metrics.mean squared error"].iloc[0]
+    score2 = query2["metrics.mean squared error"].iloc[0]
+
+    best_estimator = None
+    if score1 < score2 : 
+        best_estimator = query1["tags.model"].unique()[0]
+    else : 
+        best_estimator = query2["tags.model"].unique()[0]
+
+    
+    best_runs = best_models[best_models["tags.model"] == best_estimator]
+    
+    all_models = {}
+    for id_model in best_runs["run_id"]:
+        model_uri = f"runs:/{id_model}/model"
+        key = best_runs[best_runs["run_id"] == id_model]["tags.horizon"].iloc[0]
+        all_models[f"{best_estimator}_{key}"] = mlflow.sklearn.load_model(model_uri)
+
+    currente_date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    model_dir = Path(PATH_SAVE_FINAL_MODEL) / f"{best_estimator}_{currente_date}"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    artifact_file_path = model_dir / f"{best_estimator}_models.joblib"
+
+    if not artifact_file_path.exists():
+        joblib.dump(all_models, artifact_file_path)    
+        print(f"{best_estimator} models have been successfully saved in {model_dir}")
+    else : 
+        print(f"{best_estimator} models already exist in {model_dir}")
+    
+    return best_estimator, all_models
