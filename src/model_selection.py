@@ -145,7 +145,7 @@ def log_experiment(PATH_DATASET, experiment_name, model, horizons, param_grid):
 
 def dump_model_from_mlflow(experiment_name, PATH_SAVE_FINAL_MODEL):
     """
-    This function saves in PATH_SAVE_FINAL_MODEL all the best models which perform the best on the given time perdiod horizons (5 hours horizon for example). It also returns the dictionary and the model's name shared by all the models inside of the dictionary.
+    This function saves in PATH_SAVE_FINAL_MODEL all the models which perform the best on the given time perdiod horizons (5 hours horizon for example). It also returns the dictionary and the model's name shared by all the models inside of the dictionary.
     """
     mlflow.set_tracking_uri('http://localhost:5000')
     experiment = mlflow.get_experiment_by_name(f"{experiment_name}")
