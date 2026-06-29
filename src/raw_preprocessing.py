@@ -479,3 +479,17 @@ def dataset_v3(conso, PATH_FILES, PATH_TO_SAVE):
     
     return conso
 
+
+
+def preprocessing():
+    conso = None
+    if os.path.isfile("../data/conso/clean_conso/conso.parquet"):
+        conso = pd.read_parquet("../data/conso/clean_conso/conso.parquet")
+        print("conso dataset succesfully loaded")
+    else : 
+        conso = rp.conso_preprocess("../data/conso/")
+        conso = rp.school_holidays_preprocess(conso, PATH_HOLIDAYS="../data/calendar/", PATH_ARTIFACTS="artifacts/py_artifacts/")
+        #conso = pd.concat([conso, holidays2.drop("Date", axis=1)], axis=1)
+        conso = rp.public_holidays_preprocess(conso, "../data/calendar/")
+        conso.to_parquet("../data/conso/clean_conso/conso.parquet")
+        print("conso dataset succesfully created")
