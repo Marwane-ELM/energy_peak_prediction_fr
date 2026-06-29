@@ -481,15 +481,27 @@ def dataset_v3(conso, PATH_FILES, PATH_TO_SAVE):
 
 
 
-def preprocessing():
+def preprocessing(
+    PATH_TO_DATA,
+    PATH_ARTIFACTS
+    
+):
+
+    path_to_data = Path(PATH_TO_DATA) #../data/
+    path_to_artifacts = Path(PATH_ARTIFACTS) #../artifacts/
     conso = None
-    if os.path.isfile("../data/conso/clean_conso/conso.parquet"):
-        conso = pd.read_parquet("../data/conso/clean_conso/conso.parquet")
+
+    if 
+    if os.path.isfile(path_to_data / "conso/clean_conso/conso.parquet"):
+        conso = pd.read_parquet(path_to_data / "conso/clean_conso/conso.parquet")
         print("conso dataset succesfully loaded")
     else : 
-        conso = rp.conso_preprocess("../data/conso/")
-        conso = rp.school_holidays_preprocess(conso, PATH_HOLIDAYS="../data/calendar/", PATH_ARTIFACTS="artifacts/py_artifacts/")
-        #conso = pd.concat([conso, holidays2.drop("Date", axis=1)], axis=1)
-        conso = rp.public_holidays_preprocess(conso, "../data/calendar/")
-        conso.to_parquet("../data/conso/clean_conso/conso.parquet")
+        conso = rp.conso_preprocess(path_to_data / "conso/")
+        conso = rp.school_holidays_preprocess(
+            conso, 
+            PATH_HOLIDAYS = path_to_data / "calendar/", 
+            PATH_ARTIFACTS = path_to_artifacts / "py_artifacts/"
+        )
+        conso = rp.public_holidays_preprocess(conso, PATH_PUBLIC_HDAY = path_to_data / "calendar/")
+        conso.to_parquet(path_to_data / "conso/clean_conso/conso.parquet")
         print("conso dataset succesfully created")
