@@ -13,12 +13,14 @@ venv/
 
 
 # Datasets
+data/
 *.xls
 *.csv
 *.gz
 *.parquet
 
 # Artifacts
+artifacts/
 *.joblib
 *.pkl
 

@@ -481,6 +481,22 @@ def dataset_v3(conso, PATH_FILES, PATH_TO_SAVE):
 
 
 
+
+# ------------------------------  AUTOMATION OF THE PREPROCESSING --------------------------
+
+
+def chech_path_existence_or_create(path):
+    """
+    The path has to be in an Path format from Pathlib library : Path(dir1/dir2)
+    """
+    if not path.exists():
+        print(f"{path} doesn't exists, let's create it")
+        path.mkdir(parents=True, exist_ok=True)
+        assert path.exists(), f"An issue occured with the creation of the path : {path}"
+        print(f"The path {path} has been successfully created\n")
+    
+
+
 def preprocessing(
     PATH_TO_DATA,
     PATH_ARTIFACTS
@@ -489,19 +505,32 @@ def preprocessing(
 
     path_to_data = Path(PATH_TO_DATA) #../data/
     path_to_artifacts = Path(PATH_ARTIFACTS) #../artifacts/
-    conso = None
+    
+    path_to_conso = path_to_data / "conso/"
+    path_to_clean_conso = path_to_conso / "clean_conso/"
+    path_to_calendar = path_to_data / "calendar/"
+    path_to_py_artifacts = path_to_artifacts / "py_artifacts/"
 
-    if 
-    if os.path.isfile(path_to_data / "conso/clean_conso/conso.parquet"):
-        conso = pd.read_parquet(path_to_data / "conso/clean_conso/conso.parquet")
+    chech_path_existence_or_create(path_to_data)
+    chech_path_existence_or_create(path_to_artifacts)
+    chech_path_existence_or_create(path_to_conso)
+    chech_path_existence_or_create(path_to_clean_conso)
+    chech_path_existence_or_create(path_to_calendar)
+    chech_path_existence_or_create(path_to_py_artifacts)
+    
+    conso = None
+    if os.path.isfile(path_to_clean_conso / "conso.parquet"):
+        conso = pd.read_parquet(path_to_clean_conso / "conso.parquet")
         print("conso dataset succesfully loaded")
     else : 
-        conso = rp.conso_preprocess(path_to_data / "conso/")
+        
+        conso = rp.conso_preprocess(path_to_conso)
         conso = rp.school_holidays_preprocess(
             conso, 
-            PATH_HOLIDAYS = path_to_data / "calendar/", 
-            PATH_ARTIFACTS = path_to_artifacts / "py_artifacts/"
+            PATH_HOLIDAYS = path_to_calendar, 
+            PATH_ARTIFACTS = path_to_py_artifacts
         )
-        conso = rp.public_holidays_preprocess(conso, PATH_PUBLIC_HDAY = path_to_data / "calendar/")
-        conso.to_parquet(path_to_data / "conso/clean_conso/conso.parquet")
+        conso = rp.public_holidays_preprocess(conso, PATH_PUBLIC_HDAY = path_to_calendar)
+        conso.to_parquet(path_to_clean_conso / "conso.parquet")
         print("conso dataset succesfully created")
+        
