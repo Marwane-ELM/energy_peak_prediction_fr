@@ -252,12 +252,12 @@ def interpolate_pd(df):
     
     
 
-def weather_clean_all(conso, PATH_FILES, PATH_TO_SAVE):
+def weather_clean_all(conso, PATH_WEATHER_FILES, PATH_SAVE_WEATHER_FILES):
     """
-    This function preprocesses all the weather files (.gz) from PATH_FILES and saves them
-    in PATH_TO_SAVE in .parquet format (to save space)
+    This function preprocesses all the weather files (.gz) from PATH_WEATHER_FILES and saves them
+    in PATH_SAVE_WEATHER_FILES in .parquet format (to save space)
     """
-    data_dir = Path(PATH_FILES)
+    data_dir = Path(PATH_WEATHER_FILES)
     cols_to_keep = [
         'NUM_POSTE',        # identifies the city
         'LAT', 'LON',       # coordinates: used to query Open-Meteo
@@ -274,7 +274,7 @@ def weather_clean_all(conso, PATH_FILES, PATH_TO_SAVE):
 
 
     for path_f in data_dir.glob("*.gz"):
-        output_path = Path(PATH_TO_SAVE) / path_f.with_suffix("").with_suffix(".parquet").name
+        output_path = Path(PATH_SAVE_WEATHER_FILES) / path_f.with_suffix("").with_suffix(".parquet").name
         num = re.findall(r'\d+', os.path.basename(path_f))[0]
 
         if not output_path.exists():
@@ -321,21 +321,21 @@ def weather_clean_all(conso, PATH_FILES, PATH_TO_SAVE):
         else : 
             print(f"The file for the department n°{num} already exists")
 
-    print(f"\n\nEverything has been successfully saved in {PATH_TO_SAVE}")
+    print(f"\n\nEverything has been successfully saved in {PATH_SAVE_WEATHER_FILES}")
     
     
 
-def dataset_v1(conso, PATH_FILES, PATH_TO_SAVE):
+def dataset_v1(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
     """
     This function merges the energy consumption dataset with the existing weather datasets. It keeps the temperature columns of each French department and calculates the population-weighted average for the other columns.
     12 main departments + weighted average
     """
-    output_path = Path(PATH_TO_SAVE) / "conso_v1.parquet"
+    output_path = Path(PATH_DATASETS_VERSIONS) / "conso_v1.parquet"
     if output_path.exists():
         print(f"The file {output_path} already exists")
         return pd.read_parquet(output_path)
 
-    data_dir = Path(PATH_FILES)
+    data_dir = Path(PATH_CLEAN_WEATHER_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
         '21': 540100,   # Cote d'Or        
@@ -359,40 +359,38 @@ def dataset_v1(conso, PATH_FILES, PATH_TO_SAVE):
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
 
-    if output_path.exists() : 
-        print(f"The file {output_path} already exists")
-    else : 
-        for path_f in data_dir.glob("*.parquet"):
-    
-            #We store the poupalation-weighted columns
-            df = pd.read_parquet(path_f)
-            prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
-    
-            population = weights[prefix]
-            df_temp += (df[cols].values * population)
-    
-            # We add the temperature columns
-            df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them    
-            conso = pd.concat([conso, df[['T']].rename(columns={'T': f'{prefix}T'})], axis=1)  
-            
-        conso.to_parquet(output_path)
+    for path_f in data_dir.glob("*.parquet"):
+
+        #We store the poupalation-weighted columns
+        df = pd.read_parquet(path_f)
+        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
+
+        population = weights[prefix]
+        df_temp += (df[cols].values * population)
+
+        # We add the temperature columns
+        df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them    
+        conso = pd.concat([conso, df[['T']].rename(columns={'T': f'{prefix}T'})], axis=1)  
+        
+    conso.to_parquet(output_path)
+    print(f"The dataset {path_to_datasets_versions} has been successfully saved")
         
     return conso
     
     
         
         
-def dataset_v2(conso, PATH_FILES, PATH_TO_SAVE):
+def dataset_v2(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
     """
     Only weighted averages
     """
-    output_path = Path(PATH_TO_SAVE) / "conso_v2.parquet"
+    output_path = Path(PATH_DATASETS_VERSIONS) / "conso_v2.parquet"
     if output_path.exists():
         print(f"The file {output_path} already exists")
         return pd.read_parquet(output_path)
 
 
-    data_dir = Path(PATH_FILES)
+    data_dir = Path(PATH_CLEAN_WEATHER_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
         '21': 540100,   # Cote d'Or        
@@ -416,36 +414,34 @@ def dataset_v2(conso, PATH_FILES, PATH_TO_SAVE):
     test = np.zeros(shape = (conso.shape[0], len(cols)))
     df_temp = pd.DataFrame(test, columns = cols)
     
-    if output_path.exists() : 
-        print(f"The file {output_path} already exists")
-    else:
-        for path_f in data_dir.glob("*.parquet"):
-    
-            df = pd.read_parquet(path_f)
-            prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
-            population = weights[prefix]
-            df_temp += df[cols].values * population
-    
-        conso = pd.concat([conso, df_temp], axis=1)
-        conso.to_parquet(output_path)
+    for path_f in data_dir.glob("*.parquet"):
+
+        df = pd.read_parquet(path_f)
+        prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
+        population = weights[prefix]
+        df_temp += df[cols].values * population
+
+    conso = pd.concat([conso, df_temp], axis=1)
+    conso.to_parquet(output_path)
+    print(f"The dataset {path_to_datasets_versions} has been successfully saved")
         
     return conso
 
 
 
-def dataset_v3(conso, PATH_FILES, PATH_TO_SAVE):
+def dataset_v3(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
     """
     5 main departments + weighted averages
     """
 
-    output_path = Path(PATH_TO_SAVE) / "conso_v3.parquet"
+    output_path = Path(PATH_DATASETS_VERSIONS) / "conso_v3.parquet"
     
     # If file exists, load and return it directly
     if output_path.exists():
         print(f"The file {output_path} already exists")
         return pd.read_parquet(output_path)  # ← was returning conso without weather cols
 
-    data_dir = Path(PATH_FILES)
+    data_dir = Path(PATH_CLEAN_WEATHER_FILES)
     station_population = {
         '13': 2087658,   # Bouches-du-Rhône 
         '33': 1690493,   # Gironde           
@@ -476,6 +472,7 @@ def dataset_v3(conso, PATH_FILES, PATH_TO_SAVE):
     
     conso = pd.concat([conso, df_temp], axis=1)
     conso.to_parquet(output_path)
+    print(f"The dataset {path_to_datasets_versions} has been successfully saved")
     
     return conso
 
@@ -499,8 +496,7 @@ def chech_path_existence_or_create(path):
 
 def preprocessing(
     PATH_TO_DATA,
-    PATH_ARTIFACTS
-    
+    PATH_ARTIFACTS,
 ):
 
     path_to_data = Path(PATH_TO_DATA) #../data/
@@ -510,6 +506,11 @@ def preprocessing(
     path_to_clean_conso = path_to_conso / "clean_conso/"
     path_to_calendar = path_to_data / "calendar/"
     path_to_py_artifacts = path_to_artifacts / "py_artifacts/"
+    path_to_weather = path_to_data / "weather/"
+    path_to_clean_weather = path_to_weather / "clean_weather/"
+    
+    path_to_final_datasets = path_to_data / "final_datasets/"
+    path_to_datasets_versions = path_to_final_datasets / "datasets_versions/"
 
     chech_path_existence_or_create(path_to_data)
     chech_path_existence_or_create(path_to_artifacts)
@@ -517,6 +518,10 @@ def preprocessing(
     chech_path_existence_or_create(path_to_clean_conso)
     chech_path_existence_or_create(path_to_calendar)
     chech_path_existence_or_create(path_to_py_artifacts)
+    chech_path_existence_or_create(path_to_weather)
+    chech_path_existence_or_create(path_to_clean_weather)
+    chech_path_existence_or_create(path_to_final_datasets)
+    chech_path_existence_or_create(path_to_datasets_versions)
     
     conso = None
     if os.path.isfile(path_to_clean_conso / "conso.parquet"):
@@ -533,4 +538,22 @@ def preprocessing(
         conso = rp.public_holidays_preprocess(conso, PATH_PUBLIC_HDAY = path_to_calendar)
         conso.to_parquet(path_to_clean_conso / "conso.parquet")
         print("conso dataset succesfully created")
+
+    
+    weather_clean_all(
+        conso, 
+        PATH_WEATHER_FILES = path_to_weather, 
+        PATH_SAVE_WEATHER_FILES = path_to_clean_weather
+    )
+
+
+    # We keep this version because it's the one that gives us the best results during the training
+    conso = dataset_v3(
+        conso,
+        PATH_CLEAN_WEATHER_FILES = path_to_clean_weather,
+        PATH_DATASETS_VERSIONS = path_to_datasets_versions
+    )
+
+    return conso
+    
         
