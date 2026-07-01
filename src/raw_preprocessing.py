@@ -495,33 +495,14 @@ def chech_path_existence_or_create(path):
 
 
 def preprocessing(
-    PATH_TO_DATA,
-    PATH_ARTIFACTS,
+    path_to_clean_conso,
+    path_to_conso,
+    path_to_calendar,
+    path_to_py_artifacts,
+    path_to_weather,
+    path_to_clean_weather
+    
 ):
-
-    path_to_data = Path(PATH_TO_DATA) #../data/
-    path_to_artifacts = Path(PATH_ARTIFACTS) #../artifacts/
-    
-    path_to_conso = path_to_data / "conso/"
-    path_to_clean_conso = path_to_conso / "clean_conso/"
-    path_to_calendar = path_to_data / "calendar/"
-    path_to_py_artifacts = path_to_artifacts / "py_artifacts/"
-    path_to_weather = path_to_data / "weather/"
-    path_to_clean_weather = path_to_weather / "clean_weather/"
-    
-    path_to_final_datasets = path_to_data / "final_datasets/"
-    path_to_datasets_versions = path_to_final_datasets / "datasets_versions/"
-
-    chech_path_existence_or_create(path_to_data)
-    chech_path_existence_or_create(path_to_artifacts)
-    chech_path_existence_or_create(path_to_conso)
-    chech_path_existence_or_create(path_to_clean_conso)
-    chech_path_existence_or_create(path_to_calendar)
-    chech_path_existence_or_create(path_to_py_artifacts)
-    chech_path_existence_or_create(path_to_weather)
-    chech_path_existence_or_create(path_to_clean_weather)
-    chech_path_existence_or_create(path_to_final_datasets)
-    chech_path_existence_or_create(path_to_datasets_versions)
     
     conso = None
     if os.path.isfile(path_to_clean_conso / "conso.parquet"):
@@ -546,13 +527,7 @@ def preprocessing(
         PATH_SAVE_WEATHER_FILES = path_to_clean_weather
     )
 
-
-    # We keep this version because it's the one that gives us the best results during the training
-    conso = dataset_v3(
-        conso,
-        PATH_CLEAN_WEATHER_FILES = path_to_clean_weather,
-        PATH_DATASETS_VERSIONS = path_to_datasets_versions
-    )
+    print("\n Preprocessing completed successfully")
 
     return conso
     

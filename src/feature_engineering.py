@@ -203,22 +203,24 @@ def drop_useless(df):
 
 
 
-def feature_engineering(df, num_version, PATH_FILES, PATH_TO_SAVE, PATH_SAVE_LINEAR, PATH_SAVE_TREE):
+def feature_engineering(df, num_version=3, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS, PATH_SAVE_LINEAR, PATH_SAVE_TREE):
     """
-    The path should also include the name of the file (dir1/dir2/conso_v1_linear.parquet)
+    This function creates 2 different datasets (one for linear models and another one tailored for tree based models).
+    The path to save datasets, for linear and tree based models, should also include the name of the file (dir1/dir2/conso_v1_linear.parquet)
     """
 
     if num_version == 1:
-        df = rp.dataset_v1(df, PATH_FILES, PATH_TO_SAVE)
+        df = rp.dataset_v1(df, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS)
     elif num_version == 2:
-        df = rp.dataset_v2(df, PATH_FILES, PATH_TO_SAVE)
+        df = rp.dataset_v2(df, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS)
     elif num_version == 3:
-        df = rp.dataset_v3(df, PATH_FILES, PATH_TO_SAVE)
+        df = rp.dataset_v3(df, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS)
     else : 
         print("Enter a valid number among 1, 2 and 3")
         return None
 
-
+    
+    
     datasets = [None, None]  # (df_linear, df_tree)
     output_path_linear = Path(PATH_SAVE_LINEAR)
     output_path_tree = Path(PATH_SAVE_TREE)
