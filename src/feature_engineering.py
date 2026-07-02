@@ -203,7 +203,7 @@ def drop_useless(df):
 
 
 
-def feature_engineering(df, num_version=3, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS, PATH_SAVE_LINEAR, PATH_SAVE_TREE):
+def feature_engineering(df, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS, PATH_SAVE_LINEAR, PATH_SAVE_TREE, num_version=3):
     """
     This function creates 2 different datasets (one for linear models and another one tailored for tree based models).
     The path to save datasets, for linear and tree based models, should also include the name of the file (dir1/dir2/conso_v1_linear.parquet)
@@ -216,7 +216,7 @@ def feature_engineering(df, num_version=3, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASE
     elif num_version == 3:
         df = rp.dataset_v3(df, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS)
     else : 
-        print("Enter a valid number among 1, 2 and 3")
+        print("Enter a valid number among 1, 2 or 3")
         return None
 
     

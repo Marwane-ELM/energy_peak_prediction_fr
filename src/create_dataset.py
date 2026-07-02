@@ -18,8 +18,8 @@ def check_path_existence_or_create(path):
 
 
 
-path_to_data = Path(PATH_TO_DATA) #../data
-path_to_artifacts = Path(PATH_ARTIFACTS) #../artifacts
+path_to_data = Path("../data") #../data
+path_to_artifacts = Path("../artifacts") #../artifacts
 path_to_conso = path_to_data / "conso"
 path_to_clean_conso = path_to_conso / "clean_conso"
 path_to_calendar = path_to_data / "calendar"
@@ -28,8 +28,8 @@ path_to_weather = path_to_data / "weather"
 path_to_clean_weather = path_to_weather / "clean_weather"
 path_to_final_datasets = path_to_data / "final_datasets"
 path_to_datasets_versions = path_to_final_datasets / "datasets_versions"
-path_to_datasets_linear_models = path_to_final_datasets / "datasets_linear_models"
-path_to_datasets_tree_based_models = path_to_final_datasets / "datasets_tree_based_models"
+path_to_datasets_linear_models = path_to_final_datasets / "datasets_linear_models/conso_v3_linear.parquet"
+path_to_datasets_tree_based_models = path_to_final_datasets / "datasets_tree_based_models/conso_v3_tree.parquet"
 
 check_path_existence_or_create(path_to_data)
 check_path_existence_or_create(path_to_artifacts)
@@ -43,6 +43,22 @@ check_path_existence_or_create(path_to_final_datasets)
 check_path_existence_or_create(path_to_datasets_versions)
 check_path_existence_or_create(path_to_datasets_linear_models)
 check_path_existence_or_create(path_to_datasets_tree_based_models)
+
+
+def download_data():
+    """
+    This function downloads the datasets required for the estimates.
+    - Download the historical electricity consumption data of the past 4 years
+    - Download the calendar from the government's website that contains our year intervals
+    - Download the public holidays from the government's website that contains our year intervals
+    - Download the historiacl weather data for the 5 main departments that contains our year intervals
+    
+    - Make sure to download them in the correct files
+    """
+
+    
+
+    
 
 
 def final_dataset():
@@ -61,8 +77,10 @@ def final_dataset():
     print("\nEnd of preprocessing part\n")
 
     print("\nStart of feature engineering part\n")
-    linear_dataset, tree_dataset = fe.feature_engineeiring(
+    linear_dataset, tree_dataset = fe.feature_engineering(
         conso, path_to_clean_weather, path_to_datasets_versions, 
         path_to_datasets_linear_models, path_to_datasets_tree_based_models
     )
     print("\nEnd of feature engineering part\n")
+
+    return [linear_dataset, tree_dataset]
