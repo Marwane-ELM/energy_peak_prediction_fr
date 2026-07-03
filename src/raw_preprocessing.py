@@ -17,7 +17,7 @@ def conso_preprocess(PATH_CONSO):
 
     conso = pd.DataFrame() 
     for i in range(1, 5):
-        df = pd.read_csv(f"{PATH_CONSO}conso_energie_202{i}.xls", sep="\t", encoding="latin1", low_memory=False)
+        df = pd.read_csv(PATH_CONSO / f"conso_energie_202{i}.zip", compression='zip', sep="\t", encoding="latin1", low_memory=False)
         conso = pd.concat([conso,df])
 
     conso = conso.shift(axis=1)
@@ -64,7 +64,7 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     This function takes as input the dataset on energy consumption and 2 paths depending on where it's called from
     """
 
-    holidays = pd.read_excel(f"{PATH_HOLIDAYS}calendrier_gouv.xlsx")
+    holidays = pd.read_parquet(PATH_HOLIDAYS / "calendrier_gouv.parquet")
     holidays["Zones"] = holidays["Zones"].apply(lambda d: d.replace(' ', '_'))
 
     holiday_names = [
@@ -88,7 +88,7 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     # We store the holidays for each zone in a dictionary
     holiday_ranges = {}
     # Either we load it or we create it if needed
-    if not os.path.isfile(f"{PATH_ARTIFACTS}holiday_ranges.pkl"):
+    if not os.path.isfile(PATH_ARTIFACTS / "holiday_ranges.pkl"):
         for zone in zones:
             # We select the date of the new dataset to facilitate the automation of the project in the future
             min_year = new_holidays["Date"].iloc[0].year
@@ -109,14 +109,14 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
                                                 (holidays["Description"] == holiday) &
                                                 (holidays["annee_scolaire"] == f"{date}-{date+1}")
                                             ]
-                    start = datetime.strptime(holidays_filtered["Date de début"].iloc[0][:10], "%Y-%m-%d").date()
-                    end = datetime.strptime(holidays_filtered["Date de fin"].iloc[0][:10], "%Y-%m-%d").date()
+                    start = pd.to_datetime(holidays_filtered["Date de début"].iloc[0]).date()
+                    end = pd.to_datetime(holidays_filtered["Date de fin"].iloc[0]).date()
                     ranges.append((holiday, start, end))
             holiday_ranges[zone] = ranges
-        jb.dump(holiday_ranges, f"{PATH_ARTIFACTS}holiday_ranges.pkl")
+        jb.dump(holiday_ranges, PATH_ARTIFACTS / "holiday_ranges.pkl")
         
     else : 
-        holiday_ranges = jb.load(f"{PATH_ARTIFACTS}holiday_ranges.pkl")  
+        holiday_ranges = jb.load(PATH_ARTIFACTS / "holiday_ranges.pkl")  
 
     # ------
     
@@ -132,7 +132,7 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
 # --------------------------------
 
 def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
-    feries = pd.read_csv(f"{PATH_PUBLIC_HDAY}jours_feries_metropole.csv").drop(["annee", "zone"], axis=1) 
+    feries = pd.read_csv(PATH_PUBLIC_HDAY / "jours_feries_metropole.csv").drop(["annee", "zone"], axis=1) 
     feries["date"] = feries["date"].apply(lambda x : datetime.strptime(x, "%Y-%m-%d").date())
     feries = feries[
         (feries["date"] >= conso_df["Date"].iloc[0]) &
@@ -472,7 +472,7 @@ def dataset_v3(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
     
     conso = pd.concat([conso, df_temp], axis=1)
     conso.to_parquet(output_path)
-    print(f"The dataset {path_to_datasets_versions} has been successfully saved")
+    print(f"The dataset {PATH_DATASETS_VERSIONS} has been successfully saved")
     
     return conso
 
@@ -480,18 +480,6 @@ def dataset_v3(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
 
 
 # ------------------------------  AUTOMATION OF THE PREPROCESSING --------------------------
-
-
-def chech_path_existence_or_create(path):
-    """
-    The path has to be in an Path format from Pathlib library : Path(dir1/dir2)
-    """
-    if not path.exists():
-        print(f"{path} doesn't exists, let's create it")
-        path.mkdir(parents=True, exist_ok=True)
-        assert path.exists(), f"An issue occured with the creation of the path : {path}"
-        print(f"The path {path} has been successfully created\n")
-    
 
 
 def preprocessing(
@@ -510,13 +498,13 @@ def preprocessing(
         print("conso dataset succesfully loaded")
     else : 
         
-        conso = rp.conso_preprocess(path_to_conso)
-        conso = rp.school_holidays_preprocess(
+        conso = conso_preprocess(path_to_conso)
+        conso = school_holidays_preprocess(
             conso, 
             PATH_HOLIDAYS = path_to_calendar, 
             PATH_ARTIFACTS = path_to_py_artifacts
         )
-        conso = rp.public_holidays_preprocess(conso, PATH_PUBLIC_HDAY = path_to_calendar)
+        conso = public_holidays_preprocess(conso, PATH_PUBLIC_HDAY = path_to_calendar)
         conso.to_parquet(path_to_clean_conso / "conso.parquet")
         print("conso dataset succesfully created")
 
