@@ -122,6 +122,23 @@ def download_data():
 
 
 def final_dataset():
+    input_nb_versions = str(input("Do you want to create 3 dataset versions (type 'yes' or 'no')) : ")).lower()
+    num_version = None
+    while input_nb_versions not in ['yes', 'no']:
+        print("Incorrect answer, type 'yes' or 'no'\n")
+        input_nb_versions = str(input("Do you want to create 3 dataset versions (type 'yes' or 'no')) : ")).lower()
+
+    if input_nb_versions == 'yes':
+        # If 0 then we create the 3 datasets versions
+        num_version = 0
+    else : 
+        num_version = int(input("Select a number among 1, 2 or 3 to create the desired dataset version : "))
+        while (num_version < 1) or (num_version > 3):
+            print("Incorrect input number\n")
+            num_version = int(input("Select a number among 1, 2 or 3 to create the desired dataset version : "))
+            
+        
+   
     check_path_existence_or_create(path_to_data)
     check_path_existence_or_create(path_to_artifacts)
     check_path_existence_or_create(path_to_conso)
@@ -152,12 +169,27 @@ def final_dataset():
     print("\nEnd of preprocessing part\n")
 
     print("\nStart of feature engineering part\n")
-    linear_dataset, tree_dataset = fe.feature_engineering(
-        conso, path_to_clean_weather, 
-        path_to_datasets_versions, 
-        path_to_datasets_linear_models / "conso_v3_linear.parquet", 
-        path_to_datasets_tree_based_models / "conso_v3_tree.parquet"
-    )
+    
+    if num_version == 0:
+        
+        for i in range(1, 4):
+            linear_dataset, tree_dataset = fe.feature_engineering(
+                conso, path_to_clean_weather, 
+                path_to_datasets_versions, 
+                path_to_datasets_linear_models / f"conso_v{i}_linear.parquet", 
+                path_to_datasets_tree_based_models / f"conso_v{i}_tree.parquet",
+                num_version = i
+            )
+    else : 
+        linear_dataset, tree_dataset = fe.feature_engineering(
+                conso, path_to_clean_weather, 
+                path_to_datasets_versions, 
+                path_to_datasets_linear_models / f"conso_v{num_version}_linear.parquet", 
+                path_to_datasets_tree_based_models / f"conso_v{num_version}_tree.parquet",
+                num_version = num_version
+            )
+        all_datasets.append([linear_dataset, tree_dataset])
+
     print("\nEnd of feature engineering part\n")
 
-    return [linear_dataset, tree_dataset]
+

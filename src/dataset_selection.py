@@ -1,6 +1,13 @@
+"""
+This py script is used for the selection of the best datasets among all the datasets located 
+in the folder '../data/final_datasets/datasets_linear_models or datasets_tree_based_models'
+"""
+
+
 import pandas as pd
 from pathlib import Path
 import mlflow
+import mlflow.sklearn
 from mlflow.models import infer_signature
 
 from sklearn.compose import ColumnTransformer
@@ -35,6 +42,9 @@ def log_models(PATH_DIR_LINEAR, PATH_DIR_TREE):
     
 
 def log_experiment(PATH_DIR, experiment_name, models):
+    """
+    This function trains simple ML models on all the types of datasets (tailored for linear or tree based models).
+    """
     data_dir = Path(PATH_DIR)
 
     mlflow.set_tracking_uri('http://localhost:5000')

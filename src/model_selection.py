@@ -1,3 +1,8 @@
+"""
+In this py script we train in depth the 2 best models selected previously in the pipeline (one linear model and one tree based models)
+"""
+
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -16,7 +21,7 @@ import src.feature_engineering as fe
 
 
 
-def log_models(PATH_DATASET_LINEAR, PATH_DATASET_TREE, best_linear_model, best_tree_based_model, horizons):
+def launch_training(PATH_DATASET_LINEAR, PATH_DATASET_TREE, best_linear_model, best_tree_based_model, horizons):
     linear_model_name = type(best_linear_model).__name__
     tree_based_model_name = type(best_tree_based_model).__name__
     
@@ -37,11 +42,11 @@ def log_models(PATH_DATASET_LINEAR, PATH_DATASET_TREE, best_linear_model, best_t
     if horizons is None:
         horizons = [0]
     
-    log_experiment(PATH_DATASET_LINEAR, 'Best models Experiment', best_linear_model, horizons, linear_params)
-    log_experiment(PATH_DATASET_TREE, 'Best models Experiment', best_tree_based_model, horizons, tree_params)
+    train_model(PATH_DATASET_LINEAR, 'Best models Experiment', best_linear_model, horizons, linear_params)
+    train_model(PATH_DATASET_TREE, 'Best models Experiment', best_tree_based_model, horizons, tree_params)
     
 
-def log_experiment(PATH_DATASET, experiment_name, model, horizons, param_grid):
+def train_model(PATH_DATASET, experiment_name, model, horizons, param_grid):
     path_f = Path(PATH_DATASET)
     dataset_name = path_f.stem
 

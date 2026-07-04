@@ -203,10 +203,10 @@ def drop_useless(df):
 
 
 
-def feature_engineering(df, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS, PATH_SAVE_LINEAR, PATH_SAVE_TREE, num_version=3):
+def feature_engineering(df, PATH_TO_CLEAN_WEATHER, PATH_TO_DATASETS_VERSIONS, PATH_SAVE_LINEAR, PATH_SAVE_TREE, num_version):
     """
     This function creates 2 different datasets (one for linear models and another one tailored for tree based models).
-    The path to save datasets, for linear and tree based models, should also include the name of the file (dir1/dir2/conso_v1_linear.parquet)
+    The path to save datasets, for linear and tree based models, should also include the name of the file (for example : dir1/dir2/conso_v1_linear.parquet)
     """
 
     if num_version == 1:

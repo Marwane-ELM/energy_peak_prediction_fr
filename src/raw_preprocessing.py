@@ -373,7 +373,8 @@ def dataset_v1(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
         conso = pd.concat([conso, df[['T']].rename(columns={'T': f'{prefix}T'})], axis=1)  
         
     conso.to_parquet(output_path)
-    print(f"The dataset {path_to_datasets_versions} has been successfully saved")
+    conso = pd.concat([conso, df_temp], axis=1)
+    print("The dataset conso_v1.parquet has been successfully saved")
         
     return conso
     
@@ -423,7 +424,7 @@ def dataset_v2(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
 
     conso = pd.concat([conso, df_temp], axis=1)
     conso.to_parquet(output_path)
-    print(f"The dataset {path_to_datasets_versions} has been successfully saved")
+    print("The dataset conso_v2.parquet has been successfully saved")
         
     return conso
 
@@ -472,7 +473,7 @@ def dataset_v3(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
     
     conso = pd.concat([conso, df_temp], axis=1)
     conso.to_parquet(output_path)
-    print(f"The dataset {PATH_DATASETS_VERSIONS} has been successfully saved")
+    print("The dataset conso_v3.parquet has been successfully saved")
     
     return conso
 
