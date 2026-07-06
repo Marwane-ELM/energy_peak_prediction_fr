@@ -3,6 +3,7 @@ import requests
 import numpy as np
 import pandas as pd
 from datetime import datetime
+
 import src.raw_preprocessing as rp
 import src.feature_engineering as fe
 
@@ -46,7 +47,7 @@ def download_file(url: str, output_path: Path) -> None:
                     f.write(chunk)
 
 
-def download_data():
+def download_data(station_population):
     """
     This function downloads the datasets required for the estimates.
     - Download the historical electricity consumption data of the past 4 years
@@ -95,21 +96,12 @@ def download_data():
         print("jours_feries_metropole.csv already exists")
 
 
-    station_population = {
-        '13': 2087658,   # Bouches-du-Rhône 
-        '33': 1690493,   # Gironde           
-        '44': 1487570,   # Loire-Atlantique   
-        '59': 2615635,   # Nord              
-        '69': 1914667,   # Rhône             
-        '75': 2103778,   # Paris
-    }
-
     end_year = int(datetime.now().year) - 2
     start_year = end_year - 4
 
     for s, _ in station_population.items():
         url_weather = f"https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/HOR/H_{s}_previous-{start_year}-{end_year}.csv.gz"
-        path = path_to_weather / f"H_{s}_previous-{start_year}-{end_year}.csv.gz "
+        path = path_to_weather / f"H_{s}_previous-{start_year}-{end_year}.csv.gz"
         if not path.exists():
             download_file(url_weather, path)
             assert path.exists(), f"H_{s}_previous-{start_year}-{end_year}.csv.gz doesn't exists, an error occured during the downloading."
@@ -152,8 +144,34 @@ def final_dataset():
     check_path_existence_or_create(path_to_datasets_linear_models)
     check_path_existence_or_create(path_to_datasets_tree_based_models)
 
+    station_population = None
     print("Downloading the required datasets")
-    download_data()
+    if num_version in [0, 1, 2]:
+        station_population = {
+            '13': 2087658,   # Bouches-du-Rhône 
+            '21': 540100,   # Cote d'Or        
+            '31': 1471468,   # Haute-Garonne    
+            '33': 1690493,   # Gironde           
+            '35': 1120666,   # Ille-et-Vilaine   
+            '44': 1487570,   # Loire-Atlantique  
+            '45': 691268,    # Loiret            
+            '59': 2615635,  # Nord              
+            '67': 1163810,  # Bas-Rhin          
+            '69': 1914667,   # Rhône             
+            '75': 2103778,   # Paris
+            '76': 1260964,   # Seine-Maritime    
+        }
+    else : 
+        station_population = {
+            '13': 2087658,   # Bouches-du-Rhône 
+            '33': 1690493,   # Gironde           
+            '44': 1487570,   # Loire-Atlantique   
+            '59': 2615635,   # Nord              
+            '69': 1914667,   # Rhône             
+            '75': 2103778,   # Paris
+        }
+        
+    download_data(station_population)
     
     print("\nStart of preprocessing part")
 
@@ -171,7 +189,6 @@ def final_dataset():
     print("\nStart of feature engineering part\n")
     
     if num_version == 0:
-        
         for i in range(1, 4):
             linear_dataset, tree_dataset = fe.feature_engineering(
                 conso, path_to_clean_weather, 
@@ -182,14 +199,18 @@ def final_dataset():
             )
     else : 
         linear_dataset, tree_dataset = fe.feature_engineering(
-                conso, path_to_clean_weather, 
-                path_to_datasets_versions, 
-                path_to_datasets_linear_models / f"conso_v{num_version}_linear.parquet", 
-                path_to_datasets_tree_based_models / f"conso_v{num_version}_tree.parquet",
-                num_version = num_version
-            )
-        all_datasets.append([linear_dataset, tree_dataset])
+            conso, 
+            path_to_clean_weather, 
+            path_to_datasets_versions, 
+            path_to_datasets_linear_models / f"conso_v{num_version}_linear.parquet", 
+            path_to_datasets_tree_based_models / f"conso_v{num_version}_tree.parquet",
+            num_version = num_version
+        )
 
     print("\nEnd of feature engineering part\n")
 
 
+
+
+if __name__ == "__main__":
+    final_dataset()
