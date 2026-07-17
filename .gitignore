@@ -21,9 +21,7 @@ data/
 *.parquet
 
 # Artifacts
-artifacts/
-*.joblib
-*.pkl
+artifacts/py_artifacts/
 
 # Jupyter
 .ipynb_checkpoints/
