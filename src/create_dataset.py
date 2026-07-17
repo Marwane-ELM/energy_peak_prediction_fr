@@ -25,6 +25,7 @@ path_to_data = Path("../data") #../data
 path_to_artifacts = Path("../artifacts") #../artifacts
 path_to_conso = path_to_data / "conso"
 path_to_clean_conso = path_to_conso / "clean_conso"
+path_to_real_time_conso = path_to_conso / "real_time_conso"
 path_to_calendar = path_to_data / "calendar"
 path_to_py_artifacts = path_to_artifacts / "py_artifacts"
 path_to_weather = path_to_data / "weather"
@@ -110,7 +111,19 @@ def download_data(station_population):
             print(f"H_{s}_previous-{start_year}-{end_year}.csv.gz already exists")
 
 
-    
+
+def download_monthly_data():
+    url = "https://eco2mix.rte-france.com/download/eco2mix/eCO2mix_RTE_En-cours-TR.zip"
+    current_year = datetime.now().year
+    path = path_to_real_time_conso / f"conso_energie_{current_year}.zip"
+    if path.exists():
+        print(f"conso_energie_{current_year}.zip already exists")
+    else :
+        print(f"the download of conso_energie_{current_year}.zip has started")
+        download_file(url, path)
+        
+    file = pd.read_csv(path, compression='zip', sep="\t", encoding="latin1", low_memory=False)
+    return file
 
 
 def final_dataset():
@@ -135,6 +148,7 @@ def final_dataset():
     check_path_existence_or_create(path_to_artifacts)
     check_path_existence_or_create(path_to_conso)
     check_path_existence_or_create(path_to_clean_conso)
+    check_path_existence_or_create(path_to_real_time_conso)
     check_path_existence_or_create(path_to_calendar)
     check_path_existence_or_create(path_to_py_artifacts)
     check_path_existence_or_create(path_to_weather)

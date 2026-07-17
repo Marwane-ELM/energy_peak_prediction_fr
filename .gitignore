@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
+notebooks/.cache.sqlite
+*.sqlite
 # Environment
 venv/
 .env

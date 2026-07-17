@@ -41,24 +41,24 @@ def cyclical_encoding(df):
 
     return df
 
-def lagged_consumption(df, horizon_shift=0):
+def lagged_consumption(df):
     
     """We add the horizon_shift to the lagged values in order to do multi-steps forecasting.
     Indeed, if we want to predict the energy consumption in 5 hours (10 rows of 30 min timestamp), we will not be
     able to get the same lag data as the next 30 min timestamp. 
     For our example we should add (5 * 2 = 10) to the lagged values. 
     """
-    lagged_values = [1, 2, 48, 336]  # last 30 min, hour, day (at same hour) and last week
+    lagged_values = [1, 2, 48, 336]  # last 30 min, hour, day (at same hour) and last week (same day)
     for l in lagged_values:
-        df.loc[:, f"lagged_{l}"] = df["Consommation"].shift(l + horizon_shift)
+        df.loc[:, f"lagged_{l}"] = df["Consommation"].shift(l)
 
     return df
 
 
 
-def rolling_window(df, horizon_shift=0):
-    shift = 1 + horizon_shift  # shift(1) for one-step and shift(1+h) for multi-step, with h>0
-    conso = df["Consommation"].shift(shift)
+def rolling_window(df):
+    #shift = 1 + horizon_shift  # shift(1) for one-step and shift(1+h) for multi-step, with h>0
+    conso = df["Consommation"].shift(1)
     df.loc[:, "rolling_mean_24h"] = conso.rolling(48).mean()
     df.loc[:, "rolling_std_24h"] = conso.rolling(48).std()
     df.loc[:, "rolling_mean_7d"] = conso.rolling(336).mean()
@@ -69,9 +69,8 @@ def rolling_window(df, horizon_shift=0):
 
 
 
-def lagged_trend(df, horizon_shift=0):
-    shift = 1 + horizon_shift
-    conso_shifted = df["Consommation"].shift(shift)
+def lagged_trend(df):
+    conso_shifted = df["Consommation"].shift(1)
     
     df.loc[:, "consumption_diff_1"] = conso_shifted.diff(1)
     df.loc[:, "consumption_diff_48"] = conso_shifted.diff(48)

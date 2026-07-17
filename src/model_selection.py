@@ -21,7 +21,7 @@ import src.feature_engineering as fe
 
 
 
-def launch_training(PATH_DATASET_LINEAR, PATH_DATASET_TREE, best_linear_model, best_tree_based_model, horizons):
+def launch_training(experiment_name, PATH_DATASET_LINEAR, PATH_DATASET_TREE, best_linear_model, best_tree_based_model, horizons):
     linear_model_name = type(best_linear_model).__name__
     tree_based_model_name = type(best_tree_based_model).__name__
     
@@ -42,8 +42,8 @@ def launch_training(PATH_DATASET_LINEAR, PATH_DATASET_TREE, best_linear_model, b
     if horizons is None:
         horizons = [0]
     
-    train_model(PATH_DATASET_LINEAR, 'Best models Experiment', best_linear_model, horizons, linear_params)
-    train_model(PATH_DATASET_TREE, 'Best models Experiment', best_tree_based_model, horizons, tree_params)
+    train_model(PATH_DATASET_LINEAR, experiment_name, best_linear_model, horizons, linear_params)
+    train_model(PATH_DATASET_TREE, experiment_name, best_tree_based_model, horizons, tree_params)
     
 
 def train_model(PATH_DATASET, experiment_name, model, horizons, param_grid):
@@ -59,8 +59,8 @@ def train_model(PATH_DATASET, experiment_name, model, horizons, param_grid):
        'Vacances de la Toussaint', 'Vacances de Noël', "Vacances d'Hiver",
        'Vacances de Printemps', "Vacances d'Été", 'public_holidays', 'year', 'month', 'hour', 'day_of_week', 'is_weekend']
 
-    cols_to_shift = ['Consommation', 'lagged_1', 'lagged_2', 'lagged_48', 'lagged_336']
-    cols_to_recalculate = ["rolling_mean_24h", "rolling_std_24h", "rolling_mean_7d", "rolling_std_7d", "rolling_max_24h", "rolling_min_24h", "consumption_diff_1", "consumption_diff_48", "consumption_pct_change_1", "consumption_pct_change_48"]
+    #cols_to_shift = ['Consommation']  #, 'lagged_1', 'lagged_2', 'lagged_48', 'lagged_336']
+    #cols_to_recalculate = ["rolling_mean_24h", "rolling_std_24h", "rolling_mean_7d", "rolling_std_7d", "rolling_max_24h", "rolling_min_24h", "consumption_diff_1", "consumption_diff_48", "consumption_pct_change_1", "consumption_pct_change_48"]
 
     original_df = pd.read_parquet(path_f)
 
@@ -68,14 +68,7 @@ def train_model(PATH_DATASET, experiment_name, model, horizons, param_grid):
 
         df = original_df.copy()
         # We shift the columns that need it
-        df[cols_to_shift] = df[cols_to_shift].shift(-h)
-        
-        # We delete and recalculate some columns
-        df = df.drop(cols_to_recalculate, axis=1)
-        
-        df = fe.rolling_window(df, horizon_shift = h)
-        df = fe.lagged_trend(df, horizon_shift = h)
-
+        df.loc[:, "Consommation"] = df["Consommation"].shift(-h)
         df = df.dropna()
 
         last_year = df['year'].iloc[-1]
