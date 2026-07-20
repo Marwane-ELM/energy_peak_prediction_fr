@@ -122,8 +122,6 @@ def download_monthly_data():
         print(f"the download of conso_energie_{current_year}.zip has started")
         download_file(url, path)
         
-    file = pd.read_csv(path, compression='zip', sep="\t", encoding="latin1", low_memory=False)
-    return file
 
 
 def final_dataset():
