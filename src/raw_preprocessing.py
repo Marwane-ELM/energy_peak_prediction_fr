@@ -363,15 +363,16 @@ def dataset_v1(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
 
     for path_f in data_dir.glob("*.parquet"):
 
-        #We store the poupalation-weighted columns
+        #We store the population-weighted columns
         df = pd.read_parquet(path_f)
+        #print(df.columns)
         prefix = re.findall(r'\d+', os.path.basename(path_f))[0]
 
         population = weights[prefix]
         df_temp += (df[cols].values * population)
 
         # We add the temperature columns
-        df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them    
+        #df = df.add_prefix(str(prefix))  # We add a prefix to each column to recognize them    
         conso = pd.concat([conso, df[['T']].rename(columns={'T': f'{prefix}T'})], axis=1)  
         
     conso.to_parquet(output_path)
@@ -434,7 +435,7 @@ def dataset_v2(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
 
 def dataset_v3(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
     """
-    5 main departments + weighted averages
+    6 main departments + weighted averages
     """
 
     output_path = Path(PATH_DATASETS_VERSIONS) / "conso_v3.parquet"
