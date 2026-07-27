@@ -10,7 +10,7 @@ def date_and_hour(df):
     """
     Input : the best dataset among the 3 created versions 
     """
-    df["Date"]   = pd.to_datetime(df["Date"])
+    df["Date"] = pd.to_datetime(df["Date"])
     df["Heures"] = pd.to_timedelta(df["Heures"].astype(str))
     df["full_date"] = df["Date"] + df["Heures"]
     # We extract the data about the time (date adnd hour) by creating new columns. 
@@ -57,7 +57,6 @@ def lagged_consumption(df):
 
 
 def rolling_window(df):
-    #shift = 1 + horizon_shift  # shift(1) for one-step and shift(1+h) for multi-step, with h>0
     conso = df["Consommation"].shift(1)
     df.loc[:, "rolling_mean_24h"] = conso.rolling(48).mean()
     df.loc[:, "rolling_std_24h"] = conso.rolling(48).std()
