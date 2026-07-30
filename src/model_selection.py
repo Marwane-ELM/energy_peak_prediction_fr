@@ -43,7 +43,7 @@ def launch_training(experiment_name, PATH_DATASET_LINEAR, PATH_DATASET_TREE, bes
         horizons = [0]
     
     train_model(PATH_DATASET_LINEAR, experiment_name, best_linear_model, horizons, linear_params)
-    train_model(PATH_DATASET_TREE, experiment_name, best_tree_based_model, horizons, tree_params)
+    #train_model(PATH_DATASET_TREE, experiment_name, best_tree_based_model, horizons, tree_params)
     
 
 def train_model(PATH_DATASET, experiment_name, model, horizons, param_grid):
@@ -68,8 +68,46 @@ def train_model(PATH_DATASET, experiment_name, model, horizons, param_grid):
 
         df = original_df.copy()
         # We shift the columns that need it
-        df.loc[:, "Consommation"] = df["Consommation"].shift(-h)
-        df = df.dropna()
+        #df.loc[:, "Consommation"] = df["Consommation"].shift(-h)
+
+        
+        #temp_cols = [col for col in df.columns if col.endswith("T")]
+        #other_climate_cols = ['T', 'U', 'FF', 'PMER', 'RR1']
+        #climate_cols = temp_cols + other_climate_cols
+
+        interactions = ['temp_sq',
+       'humidity_sq', 'hour_x_is_weekend', 'hour_x_is_holiday', 'hour_x_dow',
+       'hour_x_month', 'is_weekend_x_month', 'is_holiday_x_month',
+       'hour_x_temp', 'hour_x_humidity', 'hour_x_wind', 'is_weekend_x_temp',
+       'is_holiday_x_temp', 'month_x_temp', 'dow_x_temp', 'hour_x_temp_sq',
+       'is_weekend_x_temp_sq', 'season_Spring_x_temp', 'season_Summer_x_temp',
+       'season_Winter_x_temp', 'hour_x_season_Spring',
+       'is_weekend_x_season_Spring', 'is_holiday_x_season_Spring',
+       'hour_x_season_Summer', 'is_weekend_x_season_Summer',
+       'is_holiday_x_season_Summer', 'hour_x_season_Winter',
+       'is_weekend_x_season_Winter', 'is_holiday_x_season_Winter',
+       'temp_x_humidity', 'temp_x_wind', 'humidity_x_wind', 'HDD', 'CDD']
+            
+        # We shift the values from some columns that we'll be able to know in the future (in production).
+        cols_to_shift = ['Consommation', 'Zone_A', 'Zone_B', 'Zone_C',
+       'Vacances de la Toussaint', 'Vacances de Noël', "Vacances d'Hiver",
+       'Vacances de Printemps', "Vacances d'Été", 'public_holidays', '44T',
+       '69T', '59T', '75T', '13T', '33T', 'T', 'U', 'FF', 'PMER', 'RR1',
+       'year', 'is_weekend', 'hour_sin', 'hour_cos', 'day_of_week_sin',
+       'day_of_week_cos', 'month_sin', 'month_cos', 'season_Spring', 'season_Summer', 'season_Winter', 'hour', 'month', 'day_of_week']
+
+        if h > 0:
+            # We remove the old interactions
+            df = df.drop(interactions, axis=1)
+            # We shift some columns
+            df[cols_to_shift] = df[cols_to_shift].shift(-h)    
+            # We remove the nan values
+            df = df.dropna()
+    
+            # We recalculate the interactions
+            df = fe.interactions_linear(df)
+            # We drop these useless columns : 'hour', 'month', 'day_of_week'
+            df = fe.drop_useless(df)
 
         last_year = df['year'].iloc[-1]
         train_set = df[df['year'] < last_year].copy()

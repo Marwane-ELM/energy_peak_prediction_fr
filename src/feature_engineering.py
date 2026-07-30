@@ -27,6 +27,28 @@ def date_and_hour(df):
     
     df = df.drop(["Date", "Heures", "full_date"], axis=1)
     return df
+
+def date_and_hour_pred(df):
+    """
+    Input : the best dataset among the 3 created versions 
+    """
+    #df["Date"] = pd.to_datetime(df["Date"])
+    #df["Heures"] = pd.to_timedelta(df["Heures"].astype(str))
+    df["full_date"] = pd.to_datetime(df["Date"]) + pd.to_timedelta(df["Heures"].astype(str))
+    # We extract the data about the time (date adnd hour) by creating new columns. 
+    #(Some models will not be able to be trained on a dataset having columns containing "datetime" format)
+    df["year"] = df["full_date"].dt.year
+    df["month"] = df["full_date"].dt.month
+
+    # We only keep the decimal value of the time (we don"t split the hour and minute cuz it"s useless)
+    df["hour"] = df["full_date"].dt.hour + (df["full_date"].dt.minute / 60)
+
+    # Here we add extra columns that"ll give us more precise info about the current day
+    df["day_of_week"] = df["full_date"].dt.dayofweek   # 0=Monday,..., 6=Sunday
+    df["is_weekend"]  = (df["day_of_week"] >= 5).astype(int)
+    
+    df = df.drop(["Date", "Heures"], axis=1)
+    return df
     
 
 def cyclical_encoding(df):
@@ -168,8 +190,9 @@ def interactions_linear(df):
     base_temp = 18  # standard for France
     df["HDD"] = (base_temp - df["T"]).clip(lower=0)  # heating need
     df["CDD"] = (df["T"] - base_temp).clip(lower=0)  # cooling need
-        
-    df = drop_useless(df)
+
+    df = df.dropna()
+    #df = drop_useless(df)
     return df
 
 
