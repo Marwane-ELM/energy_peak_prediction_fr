@@ -10,7 +10,7 @@ def predict():
     # We only keep the rows with minutes = 00 or 30
     df = df[df["Heures"].apply(lambda x: x.minute in {00, 30})]
     df = df.reset_index(drop=True)
-    df = df.drop(["Consommation"], axis=1)
+    df = df.drop(["Consommation", "hour", "month", "day_of_week"], axis=1)
 
     # We add the date and hour
     df.loc[len(df)] = None
@@ -89,7 +89,7 @@ def predict():
     df = fe.cyclical_encoding(df)
     df = fe.rolling_window(df)
     df = fe.lagged_trend(df)
-
+    df = df.drop(["Consommation", "hour", "month", "day_of_week"], axis=1)
     
     
     return None
