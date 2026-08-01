@@ -40,7 +40,7 @@ def date_and_hour_pred(df):
     df["year"] = df["full_date"].dt.year
     df["month"] = df["full_date"].dt.month
 
-    # We only keep the decimal value of the time (we don"t split the hour and minute cuz it"s useless)
+    # We only keep the decimal value of the time (we don't split the hour and minute because it's useless)
     df["hour"] = df["full_date"].dt.hour + (df["full_date"].dt.minute / 60)
 
     # Here we add extra columns that"ll give us more precise info about the current day
@@ -127,13 +127,21 @@ def seasons_tree(df):
 def seasons_linear(df):
     df["season"] = df["month"].apply(get_season)
 
-    # We One-Hot encode the season column, it creates new columns for each season
-    # We drop the first column to avoid multi collinearity ofr linear models
-    season_dummies = pd.get_dummies(df["season"], prefix="season", dtype = int, drop_first=True)
-    
+    df["season"] = pd.Categorical(
+        df["season"],
+        categories=["Autumn", "Spring", "Summer", "Winter"]
+    )
+
+    season_dummies = pd.get_dummies(
+        df["season"],
+        prefix="season",
+        dtype=int,
+        drop_first=True
+    )
+
     df = pd.concat([df, season_dummies], axis=1)
-    df = df.drop(columns=["season"])
-    
+    df = df.drop(columns="season")
+
     return df
 
 

@@ -107,8 +107,8 @@ def train_model(PATH_DATASET, experiment_name, model, horizons, param_grid):
             # We recalculate the interactions
             df = fe.interactions_linear(df)
             # We drop these useless columns : 'hour', 'month', 'day_of_week'
-            df = fe.drop_useless(df)
-
+            
+        df = fe.drop_useless(df)
         last_year = df['year'].iloc[-1]
         train_set = df[df['year'] < last_year].copy()
         test_set = df[df['year'] == last_year].copy()
