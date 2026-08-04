@@ -257,8 +257,10 @@ def predict():
     if path_preds.exists():
         os.remove(path_preds)
         
-    dump(predictions, "../artifacts/model_artifacts/predictions/preds.joblib",)
+    dump(predictions, "../artifacts/model_artifacts/predictions/preds.joblib")
 
+    return predictions
 
+    
 if __name__ == "__main__":
     predict()

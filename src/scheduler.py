@@ -3,6 +3,7 @@ import time
 import requests
 from pathlib import Path
 from datetime import datetime
+import src.predict as pr
 
 
 path_to_data = Path("../data") #../data
@@ -52,6 +53,6 @@ def download_monthly_data():
 while True:
     print("Donwloading new data")
     download_monthly_data()
-    time.sleep(10)   # 1800 secondes = 30 minutes
-    #pd.predict()
+    time.sleep(1800)   # 1800 secondes = 30 minutes
+    pr.predict()
     
