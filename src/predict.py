@@ -105,6 +105,8 @@ def predict():
                 elif event in feries:
                     df.loc[:, "public_holidays"] = 1
 
+    df["Consommation"] = pd.to_numeric(df["Consommation"], errors="coerce")
+    df["Consommation"] = df["Consommation"].interpolate()
     
     #-----  Adding other columns -----
     df = fe.date_and_hour_pred(df)
@@ -167,7 +169,7 @@ def predict():
         	"hourly": ["temperature_2m", "relative_humidity_2m", "rain", "surface_pressure", "wind_speed_10m"],
         	"timezone": "Europe/London",
         	"past_days": 7,
-        	"forecast_days": 1,
+        	"forecast_days": 2,
         }
         responses = openmeteo.weather_api(url, params = params)
         
