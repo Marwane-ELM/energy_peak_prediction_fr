@@ -231,6 +231,7 @@ def predict():
     
     
     pred = pd.concat([pred, df_temp], axis=1)
+    dates = pred["full_date"]
     pred = pred.drop("full_date", axis=1)
 
     
@@ -259,9 +260,9 @@ def predict():
     if path_preds.exists():
         os.remove(path_preds)
         
-    dump(predictions, "../artifacts/model_artifacts/predictions/preds.joblib")
+    dump((dates, predictions), "../artifacts/model_artifacts/predictions/preds.joblib")
 
-    return predictions
+    return (dates, predictions)
 
     
 if __name__ == "__main__":

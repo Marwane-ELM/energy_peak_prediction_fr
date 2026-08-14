@@ -49,10 +49,14 @@ def download_monthly_data():
     assert not path.exists(), f"Error : {path.name} wasn't deleted."
     print(f"Download of conso_energie_{current_year}.zip has started")
     download_file(url, path)
+    return path.exists()
 
-while True:
+if __name__ == "__main__":
     print("Donwloading new data")
-    download_monthly_data()
+    check = False
+    while not check:
+        check = download_monthly_data()
+        
     time.sleep(1800)   # 1800 secondes = 30 minutes
     pr.predict()
     
