@@ -112,6 +112,7 @@ def download_data(station_population):
 
 
 
+# ---------------- TEST FUNCTION --------------------
 def download_monthly_data():
     url = "https://eco2mix.rte-france.com/download/eco2mix/eCO2mix_RTE_En-cours-TR.zip"
     current_year = datetime.now().year
@@ -121,7 +122,8 @@ def download_monthly_data():
     else :
         print(f"the download of conso_energie_{current_year}.zip has started")
         download_file(url, path)
-        
+# ------------------------------------
+      
 
 
 def final_dataset():

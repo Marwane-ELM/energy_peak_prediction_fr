@@ -1,6 +1,7 @@
 import numpy as np
 import requests
 import pandas as pd
+import psycopg
 
 import requests
 import openmeteo_requests
@@ -244,26 +245,42 @@ def predict():
     
     pred2 = pred.copy()
     pred2 = fe.drop_useless(pred2)
-    
-    predictions = {}
+
+    conn = psycopg.connect(
+        host = "localhost",
+        port = 5432,
+        dbname = "energy_db",
+        user="postgre",
+        password = "postmdp"   
+    )
+
+        
+    #predictions = {}
     for i in range(0, 10):
         if i == 0:
             p = models[f"Ridge_{i}"].predict(pred)
-            predictions[f"horizon_{i}"] = p[0]
         else:
             p = models[f"Ridge_{i}"].predict(pred2.iloc[i-1:i])
-            predictions[f"horizon_{i}"] = p[0]
-    
-    
-    print(predictions)
-    path_preds = Path("../artifacts/model_artifacts/predictions/preds.joblib")
-    if path_preds.exists():
-        os.remove(path_preds)
-        
-    dump((dates, predictions), "../artifacts/model_artifacts/predictions/preds.joblib")
 
-    return (dates, predictions)
-
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                INERT INTO forecasts (timestamp, consommation_mw)
+                VALUES (%s, %s)
+                """,
+                ({dates[i]}, {p[0]})
+            )
+        #predictions[f"horizon_{i}"] = p[0]
     
-if __name__ == "__main__":
-    predict()
+
+    conn.close()
+    
+    #print(predictions)
+    #path_preds = Path("../artifacts/model_artifacts/predictions/preds.joblib")
+
+    #if path_preds.exists():
+    #    path_preds.unlink(missing_ok=True)
+    
+    #dump((dates, predictions), path_preds)
+
+    #return (dates, predictions)
+

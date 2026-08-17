@@ -3,6 +3,9 @@ import time
 import requests
 from pathlib import Path
 from datetime import datetime
+import os
+import sys
+sys.path.append(os.path.abspath(".."))
 import src.predict as pr
 
 
@@ -52,11 +55,15 @@ def download_monthly_data():
     return path.exists()
 
 if __name__ == "__main__":
-    print("Donwloading new data")
-    check = False
-    while not check:
-        check = download_monthly_data()
-        
-    time.sleep(1800)   # 1800 secondes = 30 minutes
-    pr.predict()
+    while True:
+        print("\nDonwloading new data")
+        check = False
+        while not check:
+            check = download_monthly_data()
+        print("The dataset has been saved with success")
+        dates, preds = pr.predict()
+        print(dates, "\n")
+        print(preds)
+    
+        time.sleep(20)   # 1800 secondes = 30 minutes
     
