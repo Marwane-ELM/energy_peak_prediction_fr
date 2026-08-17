@@ -3,13 +3,16 @@ import time
 import requests
 from pathlib import Path
 from datetime import datetime
-import os
-import sys
-sys.path.append(os.path.abspath(".."))
-import src.predict as pr
+#import os
+#import sys
+#sys.path.append(os.path.abspath(".."))
+import predict as pr
+from apscheduler.schedulers.blocking import BlockingScheduler
 
+scheduler = BlockingScheduler()
 
-path_to_data = Path("../data") #../data
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+path_to_data = PROJECT_ROOT / "data"
 path_to_conso = path_to_data / "conso"
 path_to_clean_conso = path_to_conso / "clean_conso"
 path_to_real_time_conso = path_to_conso / "real_time_conso"
@@ -54,16 +57,26 @@ def download_monthly_data():
     download_file(url, path)
     return path.exists()
 
+def run_pipeline():
+    print("\nDownloading new data")
+
+    check = False
+    while not check:
+        check = download_monthly_data()
+
+    print("The dataset has been saved successfully")
+
+    pr.predict()
+
+    print("The database has been updated with success")
+
 if __name__ == "__main__":
-    while True:
-        print("\nDonwloading new data")
-        check = False
-        while not check:
-            check = download_monthly_data()
-        print("The dataset has been saved with success")
-        dates, preds = pr.predict()
-        print(dates, "\n")
-        print(preds)
-    
-        time.sleep(20)   # 1800 secondes = 30 minutes
+
+    scheduler.add_job(
+        run_pipeline,
+        "cron",
+        minute="0,30"
+    )
+
+    scheduler.start()
     

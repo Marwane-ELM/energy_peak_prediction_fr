@@ -5,8 +5,6 @@ import psycopg
 
 app = FastAPI()
 
-path_preds = Path("../../artifacts/model_artifacts/predictions/preds.joblib")
-
 @app.get("/predict")
 def get_preds():
     conn = psycopg.connect(
@@ -21,7 +19,9 @@ def get_preds():
         cursor.execute("""
             SELECT timestamp, consumption_mw
             FROM forecasts
-            ORDER BY timestamp
+            WHERE timestamp::date = CURRENT_DATE
+            ORDER BY timestamp;
+
         """)
     
         data = cursor.fetchall()

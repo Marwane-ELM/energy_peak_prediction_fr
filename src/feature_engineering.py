@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import os.path
 from datetime import datetime
-import src.raw_preprocessing as rp
+import raw_preprocessing as rp
 
 
 def date_and_hour(df):

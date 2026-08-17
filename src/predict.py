@@ -2,28 +2,35 @@ import numpy as np
 import requests
 import pandas as pd
 import psycopg
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 import requests
 import openmeteo_requests
 import requests_cache
 from retry_requests import retry
 
-import os
-import sys
-sys.path.append(os.path.abspath(".."))
+#import os
+#import sys
+#sys.path.append(os.path.abspath(".."))
 
 from datetime import date, datetime, timedelta
 from vacances_scolaires_france import SchoolHolidayDates
 
 from pathlib import Path
 from joblib import load, dump
-import src.raw_preprocessing as rp
-import src.feature_engineering as fe
+import raw_preprocessing as rp
+import feature_engineering as fe
+
+
+scheduler = BlockingScheduler()
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
 
 def predict():
 
 #----- Importing the dataset + preprocessing ----
-    df = rp.conso_preprocess(Path("../data/conso/real_time_conso/"))
+    df = rp.conso_preprocess(PROJECT_ROOT / "data" / "conso" / "real_time_conso")
     # We only keep the rows with minutes = 00 or 30
     df = df[df["Heures"].apply(lambda x: x.minute in {00, 30})]
     df = df.reset_index(drop=True)
@@ -103,7 +110,7 @@ def predict():
                     elif event["description"].lower() == "vacances d'été":
                         df.loc[:, "Vacances d'Été"] = 1
                 # Or if it's public holidays (jours fériés)
-                elif event in feries:
+                elif event["description"].lower() in feries:
                     df.loc[:, "public_holidays"] = 1
 
     df["Consommation"] = pd.to_numeric(df["Consommation"], errors="coerce")
@@ -241,39 +248,60 @@ def predict():
         
     
     # Making predictions by loading the models
-    models = load("../artifacts/model_artifacts/Ridge_2026-07-30_23-24-53/Ridge_models.joblib")
+    models = load(PROJECT_ROOT / "artifacts" / "model_artifacts" / "Ridge_2026-07-30_23-24-53" / "Ridge_models.joblib")
     
     pred2 = pred.copy()
     pred2 = fe.drop_useless(pred2)
 
+#------ We save in the database the predictions ---
     conn = psycopg.connect(
         host = "localhost",
         port = 5432,
         dbname = "energy_db",
-        user="postgre",
+        user="postgres",
         password = "postmdp"   
     )
 
-        
-    #predictions = {}
-    for i in range(0, 10):
-        if i == 0:
-            p = models[f"Ridge_{i}"].predict(pred)
-        else:
-            p = models[f"Ridge_{i}"].predict(pred2.iloc[i-1:i])
-
-        with conn.cursor() as cursor:
+    current_time = datetime.now()
+    
+    with conn.cursor() as cursor:
+        # If it's midnight we delete everything
+        if current_time.hour == 00 and current_time.minute == 00:
             cursor.execute("""
-                INERT INTO forecasts (timestamp, consommation_mw)
-                VALUES (%s, %s)
+            TRUNCATE TABLE forecasts;
+            """)
+        
+        # We delete in the db the rows with a horizon > 0 (from horizon 1 to 9)
+        cursor.execute("""
+        DELETE FROM forecasts
+        WHERE timestamp >= (%s);
+        """, (current_time,))
+        
+        # Then we add the new predictions
+        for i in range(0, 10):
+            if i == 0:
+                p = models[f"Ridge_{i}"].predict(pred)
+            else:
+                p = models[f"Ridge_{i}"].predict(pred2.iloc[i-1:i])
+    
+            cursor.execute("""
+                INSERT INTO forecasts (timestamp, consumption_mw)
+                VALUES (%s, %s);
                 """,
-                ({dates[i]}, {p[0]})
+                (dates[i], p[0])
             )
-        #predictions[f"horizon_{i}"] = p[0]
     
-
+    conn.commit()
     conn.close()
-    
+
+
+
+
+
+
+
+
+
     #print(predictions)
     #path_preds = Path("../artifacts/model_artifacts/predictions/preds.joblib")
 
