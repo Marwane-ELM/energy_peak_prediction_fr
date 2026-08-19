@@ -24,10 +24,17 @@ def get_preds():
 
         """)
     
-        data = cursor.fetchall()
+        forecast = cursor.fetchall()
 
+        cursor.execute("""
+            SELECT timestamp, hist_consumption_mw
+            FROM historical
+            WHERE timestamp::date = CURRENT_DATE
+            ORDER BY timestamp;
+        """)
+
+        historical = cursor.fetchall()
+        
     conn.close()
 
-    
-    return data
-    
+    return {"forecast" : forecast, "historical" : historical}

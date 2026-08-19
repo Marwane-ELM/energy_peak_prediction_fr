@@ -11,4 +11,9 @@ assert status_code == 200, st.title(status_code)
 
 data = response.json()
     
-st.dataframe(data)
+st.write("Forecast")
+st.dataframe(data["forecast"])
+
+st.write("Historical")
+st.dataframe(data["historical"])
+

@@ -18,8 +18,8 @@ from vacances_scolaires_france import SchoolHolidayDates
 
 from pathlib import Path
 from joblib import load, dump
-import raw_preprocessing as rp
-import feature_engineering as fe
+from . import raw_preprocessing as rp
+from . import feature_engineering as fe
 
 
 scheduler = BlockingScheduler()
@@ -122,6 +122,10 @@ def predict():
     df = fe.rolling_window(df)
     df = fe.lagged_trend(df)
     df = fe.seasons_linear(df)
+
+    # We extract the today's historical electricity consumption values to store them in the database
+    hist_today = df[df["full_date"].dt.date == datetime.now().date()][["full_date", "Consommation"]]
+    
     df = df.drop(["Consommation"], axis=1)
 
     # --- Input dataframe ---
@@ -253,7 +257,8 @@ def predict():
     pred2 = pred.copy()
     pred2 = fe.drop_useless(pred2)
 
-#------ We save in the database the predictions ---
+
+#------ We save in the database the predictions and the historical energy consumption data ---
     conn = psycopg.connect(
         host = "localhost",
         port = 5432,
@@ -262,9 +267,29 @@ def predict():
         password = "postmdp"   
     )
 
+
     current_time = datetime.now()
     
     with conn.cursor() as cursor:
+
+        # We create the tables if they don't exists
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS forecasts(
+            id SERIAL PRIMARY KEY,
+            timestamp timestamp,
+            consumption_mw double precision 
+        );
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS historical(
+            id SERIAL PRIMARY KEY,
+            timestamp timestamp,
+            hist_consumption_mw double precision 
+        );
+        """)
+        
+        
         # If it's midnight we delete everything
         if current_time.hour == 00 and current_time.minute == 00:
             cursor.execute("""
@@ -290,6 +315,20 @@ def predict():
                 """,
                 (dates[i], p[0])
             )
+
+        # We also save the nhistorical data 
+
+        cursor.execute("""
+        TRUNCATE TABLE historical;
+        """)
+        
+        for idx, row in hist_today.iterrows():
+            cursor.execute("""
+                INSERT INTO historical(timestamp, hist_consumption_mw)
+                VALUES (%s, %s);
+            """, (row["full_date"], row["Consommation"]))
+
+        
     
     conn.commit()
     conn.close()
@@ -298,17 +337,4 @@ def predict():
 
 
 
-
-
-
-
-    #print(predictions)
-    #path_preds = Path("../artifacts/model_artifacts/predictions/preds.joblib")
-
-    #if path_preds.exists():
-    #    path_preds.unlink(missing_ok=True)
-    
-    #dump((dates, predictions), path_preds)
-
-    #return (dates, predictions)
 

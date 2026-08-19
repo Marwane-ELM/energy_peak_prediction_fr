@@ -6,7 +6,7 @@ from datetime import datetime
 #import os
 #import sys
 #sys.path.append(os.path.abspath(".."))
-import predict as pr
+from . import predict as pr
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 scheduler = BlockingScheduler()

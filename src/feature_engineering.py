@@ -2,8 +2,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import os.path
+import sys
+#sys.path.append(os.path.abspath(".."))
 from datetime import datetime
-import raw_preprocessing as rp
+from . import raw_preprocessing as rp
 
 
 def date_and_hour(df):
