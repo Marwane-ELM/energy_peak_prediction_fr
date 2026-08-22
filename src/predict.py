@@ -1,7 +1,9 @@
 import numpy as np
 import requests
 import pandas as pd
+import pytz
 import psycopg
+
 from apscheduler.schedulers.blocking import BlockingScheduler
 
 import requests
@@ -124,8 +126,7 @@ def predict():
     df = fe.seasons_linear(df)
 
     # We extract the today's historical electricity consumption values to store them in the database
-    hist_today = df[df["full_date"].dt.date == datetime.now().date()][["full_date", "Consommation"]]
-    
+    hist_today = df[df["full_date"].dt.date == datetime.now().date()][["full_date", "Consommation"]].iloc[:-1, :]    
     df = df.drop(["Consommation"], axis=1)
 
     # --- Input dataframe ---
@@ -267,8 +268,8 @@ def predict():
         password = "postmdp"   
     )
 
-
-    current_time = datetime.now()
+    france_tz = pytz.timezone("Europe/Paris")
+    current_time = datetime.now(france_tz)
     
     with conn.cursor() as cursor:
 
@@ -277,7 +278,10 @@ def predict():
         CREATE TABLE IF NOT EXISTS forecasts(
             id SERIAL PRIMARY KEY,
             timestamp timestamp,
-            consumption_mw double precision 
+            consumption_mw double precision,
+            horizon smallint,
+            CONSTRAINT forecasts_horizon_check CHECK (horizon BETWEEN 0 AND 9)
+
         );
         """)
 
@@ -290,17 +294,19 @@ def predict():
         """)
         
         
-        # If it's midnight we delete everything
+        # If it's midnight we delete all the predicted values
         if current_time.hour == 00 and current_time.minute == 00:
             cursor.execute("""
             TRUNCATE TABLE forecasts;
             """)
         
         # We delete in the db the rows with a horizon > 0 (from horizon 1 to 9)
+        time_db_delete = current_time.replace(second=0, microsecond=0)
+        time_db_delete = time_db_delete + timedelta(minutes=30)
         cursor.execute("""
         DELETE FROM forecasts
-        WHERE timestamp >= (%s);
-        """, (current_time,))
+        WHERE horizon > 0;
+        """)
         
         # Then we add the new predictions
         for i in range(0, 10):
@@ -310,13 +316,13 @@ def predict():
                 p = models[f"Ridge_{i}"].predict(pred2.iloc[i-1:i])
     
             cursor.execute("""
-                INSERT INTO forecasts (timestamp, consumption_mw)
-                VALUES (%s, %s);
+                INSERT INTO forecasts (timestamp, consumption_mw, horizon)
+                VALUES (%s, %s, %s);
                 """,
-                (dates[i], p[0])
+                (dates[i], p[0], i)
             )
 
-        # We also save the nhistorical data 
+        # We also save the historical data 
 
         cursor.execute("""
         TRUNCATE TABLE historical;

@@ -24,7 +24,7 @@ def get_preds():
 
         """)
     
-        forecast = cursor.fetchall()
+        predictions = cursor.fetchall()
 
         cursor.execute("""
             SELECT timestamp, hist_consumption_mw
@@ -37,4 +37,7 @@ def get_preds():
         
     conn.close()
 
-    return {"forecast" : forecast, "historical" : historical}
+    return {
+        "historical": historical,
+        "predictions": predictions
+    }

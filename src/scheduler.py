@@ -9,7 +9,7 @@ from datetime import datetime
 from . import predict as pr
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-scheduler = BlockingScheduler()
+scheduler = BlockingScheduler(timezone="Europe/Paris")
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 path_to_data = PROJECT_ROOT / "data"
@@ -75,7 +75,8 @@ if __name__ == "__main__":
     scheduler.add_job(
         run_pipeline,
         "cron",
-        minute="0,30"
+        max_instances=1,
+        minute="0,30,32"
     )
 
     scheduler.start()
