@@ -469,7 +469,7 @@ selected_points = (
 indicator_titles = (
     altair.Chart(indicator_titles_df)
     .mark_text(
-        fontSize=11,
+        fontSize=13,
         fontWeight="bold",
         align="left",
         baseline="middle"
@@ -499,7 +499,7 @@ indicator_titles = (
                     "Prediction"
                 ],
                 range=[
-                    "#0B3D91",
+                    "#2b61ba",
                     "#F28E2B"
                 ]
             ),
