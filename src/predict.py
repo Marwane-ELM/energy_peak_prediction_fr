@@ -280,7 +280,8 @@ def predict():
             timestamp timestamp,
             consumption_mw double precision,
             horizon smallint,
-            CONSTRAINT forecasts_horizon_check CHECK (horizon BETWEEN 0 AND 9)
+            CONSTRAINT forecasts_horizon_check CHECK (horizon BETWEEN 0 AND 9),
+            CONSTRAINT unique_couple_time_horizon UNIQUE (timestamp, horizon)
 
         );
         """)

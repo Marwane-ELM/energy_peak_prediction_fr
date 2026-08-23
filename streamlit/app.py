@@ -9,7 +9,7 @@ import requests
 st.set_page_config(
     layout="wide",
     page_title="PikElek AI",
-    page_icon=":zap:"
+    page_icon="⚡"
 )
 
 
@@ -18,6 +18,7 @@ refresh_count = st_autorefresh(
     interval=10_000,
     key="forecast_auto_refresh"
 )
+
 
 # Style et logo texte de l'application.
 st.markdown(
@@ -63,8 +64,6 @@ st.markdown(
 )
 
 
-
-
 # Récupération des données depuis l'API FastAPI.
 try:
     response = requests.get(
@@ -108,26 +107,23 @@ def prepare_hourly_series(dataframe, value_column, output_column):
     """
     Crée une série contenant une valeur unique pour chaque heure.
 
-    Si l'API retourne plusieurs lignes avec la même heure, par exemple
-    plusieurs "14:30" pour différentes dates, seule la valeur du timestamp
-    le plus récent est conservée.
+    Si l'API retourne plusieurs lignes avec la même heure, seule la valeur
+    du timestamp le plus récent est conservée.
     """
     dataframe = dataframe.copy()
 
     # Heure utilisée pour l'affichage : 00:00, 00:30, ..., 23:30.
     dataframe["hour"] = dataframe["timestamp"].dt.strftime("%H:%M")
 
-    # Garantit que keep="last" correspond bien au timestamp le plus récent.
+    # Garantit que keep="last" correspond au timestamp le plus récent.
     dataframe = dataframe.sort_values("timestamp")
 
-    # Corrige l'erreur :
-    # ValueError: cannot reindex on an axis with duplicate labels
+    # Une seule valeur par heure.
     dataframe = dataframe.drop_duplicates(
         subset="hour",
         keep="last"
     )
 
-    # Crée une Series dont l'index est uniquement l'heure.
     return (
         dataframe
         .set_index("hour")[value_column]
@@ -159,14 +155,77 @@ df = pd.concat(
 )
 
 
-# S'assure que toutes les demi-heures de la journée existent dans le tableau.
+# S'assure que toutes les demi-heures existent dans le tableau.
 df = df.reindex(full_hours)
 df.index.name = "hour"
 
 
-
 # ###################### SETTING UP THE GRAPH #########################
-# Préparation du DataFrame pour Altair.
+
+# Limites fixes de l'axe vertical.
+Y_MIN = 28000
+Y_MAX = 58000
+
+
+# Position verticale des indicateurs en haut à gauche.
+# Ces positions font partie du domaine Y existant :
+# elles ne modifient ni la taille, ni les axes du graphique.
+INDICATOR_TITLE_Y = 57400
+INDICATOR_VALUE_Y = 55700
+
+
+def format_consumption(value):
+    """
+    Formate une valeur de consommation pour l'affichage.
+    """
+    if pd.isna(value):
+        return "Indisponible"
+
+    return f"{value:,.0f} MW".replace(",", " ")
+
+
+# DataFrame au format large :
+# une ligne par heure, contenant la valeur historique et prédite.
+# Il est utilisé pour la sélection de souris et les indicateurs dynamiques.
+hover_df = df.reset_index().copy()
+
+hover_df["Historical value label"] = hover_df["Historical data"].apply(
+    format_consumption
+)
+
+hover_df["Prediction value label"] = hover_df["Predicted values"].apply(
+    format_consumption
+)
+
+# Position horizontale fixe des indicateurs dans le coin supérieur gauche.
+hover_df["historical_indicator_hour"] = "00:30"
+hover_df["prediction_indicator_hour"] = "05:00"
+
+
+# Libellés fixes visibles en permanence.
+indicator_titles_df = pd.DataFrame(
+    {
+        "hour": [
+            "00:30",
+            "05:00"
+        ],
+        "label": [
+            "● Consommation historique",
+            "● Prédiction"
+        ],
+        "indicator_type": [
+            "Historical",
+            "Prediction"
+        ],
+        "y": [
+            INDICATOR_TITLE_Y,
+            INDICATOR_TITLE_Y
+        ]
+    }
+)
+
+
+# DataFrame au format long, utilisé par les courbes Altair.
 chart_df = (
     df.reset_index()
     .melt(
@@ -177,28 +236,36 @@ chart_df = (
     .dropna(subset=["Consumption (MW)"])
 )
 
+
 # Dernière prédiction chronologique retournée par l'API.
-last_prediction_timestamp = predictions["timestamp"].max()
-last_prediction_hour = last_prediction_timestamp.strftime("%H:%M")
+if predictions.empty:
+    last_prediction_df = pd.DataFrame(
+        columns=[
+            "hour",
+            "Series",
+            "Consumption (MW)"
+        ]
+    )
 
-# Récupère la valeur effectivement présente dans le graphique pour cette heure.
-last_prediction_df = chart_df[
-    (chart_df["Series"] == "Predicted values")
-    & (chart_df["hour"] == last_prediction_hour)
-].copy()
+else:
+    last_prediction_timestamp = predictions["timestamp"].max()
+    last_prediction_hour = last_prediction_timestamp.strftime("%H:%M")
 
-
-# Limites fixes de l'axe vertical.
-Y_MIN = 28000
-Y_MAX = 58000
+    last_prediction_df = chart_df[
+        (chart_df["Series"] == "Predicted values")
+        & (chart_df["hour"] == last_prediction_hour)
+    ].copy()
 
 
 # Couleurs des courbes.
 series_colors = altair.Scale(
-    domain=["Historical data", "Predicted values"],
+    domain=[
+        "Historical data",
+        "Predicted values"
+    ],
     range=[
-        "#0B3D91",  # Bleu historique.
-        "#F28E2B"   # Orange prédiction.
+        "#0B3D91",
+        "#F28E2B"
     ]
 )
 
@@ -227,27 +294,32 @@ historical_gradient = altair.Gradient(
 )
 
 
-# Sélection de l'heure la plus proche de la souris.
+# Sélection de l'heure survolée.
+# La sélection se fait sur l'heure uniquement, pas sur la hauteur du curseur.
 hover = altair.selection_point(
     fields=["hour"],
-    nearest=True,
     on="pointermove",
     clear="mouseout",
+    toggle=False,
     empty=False
 )
 
 
-# Encodages communs du graphique.
+# Encodages communs des courbes.
 base = altair.Chart(chart_df).encode(
     x=altair.X(
         "hour:N",
         title="Hour",
-        scale=altair.Scale(domain=full_hours.tolist()),
-        axis=altair.Axis(labelAngle=-90)
+        scale=altair.Scale(
+            domain=full_hours.tolist()
+        ),
+        axis=altair.Axis(
+            labelAngle=-90
+        )
     ),
     y=altair.Y(
         "Consumption (MW):Q",
-        title="Electricity consumption (MW)",
+        title="",
         scale=altair.Scale(
             domain=[Y_MIN, Y_MAX],
             nice=False
@@ -292,18 +364,22 @@ lines = (
     )
 )
 
+
 # Anneau orange clair autour de la dernière prédiction.
 last_prediction_outer_ring = (
     altair.Chart(last_prediction_df)
     .mark_circle(
         size=320,
-        color="#FFD6AD",  # Orange clair.
-        filled=False
+        color="#FFD6AD",
+        filled=False,
+        strokeWidth=3
     )
     .encode(
         x=altair.X(
             "hour:N",
-            scale=altair.Scale(domain=full_hours.tolist())
+            scale=altair.Scale(
+                domain=full_hours.tolist()
+            )
         ),
         y=altair.Y(
             "Consumption (MW):Q",
@@ -316,18 +392,20 @@ last_prediction_outer_ring = (
 )
 
 
-# Point orange central, de la même couleur que la courbe de prédiction.
+# Point orange central de la dernière prédiction.
 last_prediction_inner_dot = (
     altair.Chart(last_prediction_df)
     .mark_circle(
         size=100,
-        color="#F28E2B",  # Même orange que la courbe.
+        color="#F28E2B",
         filled=True
     )
     .encode(
         x=altair.X(
             "hour:N",
-            scale=altair.Scale(domain=full_hours.tolist())
+            scale=altair.Scale(
+                domain=full_hours.tolist()
+            )
         ),
         y=altair.Y(
             "Consumption (MW):Q",
@@ -340,32 +418,37 @@ last_prediction_inner_dot = (
 )
 
 
-# Ligne horizontale visible au survol.
-horizontal_rules = (
-    base.mark_rule(
+# Ligne verticale qui traverse toute la hauteur du graphique.
+vertical_rule = (
+    altair.Chart(hover_df)
+    .mark_rule(
+        color="#ffffff",
         strokeDash=[5, 4],
         strokeWidth=1.5
     )
     .encode(
-        color=altair.Color(
-            "Series:N",
-            scale=series_colors,
-            legend=None
+        x=altair.X(
+            "hour:N",
+            scale=altair.Scale(
+                domain=full_hours.tolist()
+            )
         ),
         opacity=altair.condition(
             hover,
-            altair.value(0.85),
+            altair.value(0.9),
             altair.value(0)
         )
     )
 )
 
 
-# Point visible sur la donnée survolée.
+# Points visibles sur les deux courbes à l'heure survolée.
 selected_points = (
     base.mark_circle(
-        size=100,
-        filled=True
+        size=115,
+        filled=True,
+        stroke="white",
+        strokeWidth=1.5
     )
     .encode(
         color=altair.Color(
@@ -377,45 +460,152 @@ selected_points = (
             hover,
             altair.value(1),
             altair.value(0)
-        ),
-        tooltip=[
-            altair.Tooltip(
-                "hour:N",
-                title="Hour"
-            ),
-            altair.Tooltip(
-                "Series:N",
-                title="Series"
-            ),
-            altair.Tooltip(
-                "Consumption (MW):Q",
-                title="Consumption (MW)",
-                format=",.0f"
-            )
-        ]
+        )
     )
 )
 
 
-# Points invisibles utilisés pour détecter précisément la position de la souris.
-mouse_detector = (
-    base.mark_circle(
-        size=180,
-        opacity=0
+# Libellés fixes : historique et prédiction.
+indicator_titles = (
+    altair.Chart(indicator_titles_df)
+    .mark_text(
+        fontSize=11,
+        fontWeight="bold",
+        align="left",
+        baseline="middle"
     )
     .encode(
+        x=altair.X(
+            "hour:N",
+            scale=altair.Scale(
+                domain=full_hours.tolist()
+            )
+        ),
+        y=altair.Y(
+            "y:Q",
+            scale=altair.Scale(
+                domain=[Y_MIN, Y_MAX],
+                nice=False
+            )
+        ),
+        text=altair.Text(
+            "label:N"
+        ),
+        color=altair.Color(
+            "indicator_type:N",
+            scale=altair.Scale(
+                domain=[
+                    "Historical",
+                    "Prediction"
+                ],
+                range=[
+                    "#0B3D91",
+                    "#F28E2B"
+                ]
+            ),
+            legend=None
+        )
+    )
+)
+
+
+# Valeur historique qui se met à jour au survol.
+historical_indicator_value = (
+    altair.Chart(hover_df)
+    .transform_filter(hover)
+    .mark_text(
+        fontSize=14,
+        color="#ffffff",
+        align="left",
+        baseline="middle"
+    )
+    .encode(
+        x=altair.X(
+            "historical_indicator_hour:N",
+            scale=altair.Scale(
+                domain=full_hours.tolist()
+            )
+        ),
+        y=altair.Y(
+            datum=INDICATOR_VALUE_Y,
+            scale=altair.Scale(
+                domain=[Y_MIN, Y_MAX],
+                nice=False
+            )
+        ),
+        text=altair.Text(
+            "Historical value label:N"
+        )
+    )
+)
+
+
+# Valeur prédite qui se met à jour au survol.
+prediction_indicator_value = (
+    altair.Chart(hover_df)
+    .transform_filter(hover)
+    .mark_text(
+        fontSize=14,
+        color="#ffffff",
+        align="left",
+        baseline="middle"
+    )
+    .encode(
+        x=altair.X(
+            "prediction_indicator_hour:N",
+            scale=altair.Scale(
+                domain=full_hours.tolist()
+            )
+        ),
+        y=altair.Y(
+            datum=INDICATOR_VALUE_Y,
+            scale=altair.Scale(
+                domain=[Y_MIN, Y_MAX],
+                nice=False
+            )
+        ),
+        text=altair.Text(
+            "Prediction value label:N"
+        )
+    )
+)
+
+
+# Zone invisible couvrant toute la hauteur du graphique.
+# Chaque bande verticale correspond à une demi-heure.
+mouse_detector = (
+    altair.Chart(hover_df)
+    .mark_rect(
+        opacity=0.001
+    )
+    .encode(
+        x=altair.X(
+            "hour:N",
+            scale=altair.Scale(
+                domain=full_hours.tolist()
+            )
+        ),
+        y=altair.Y(
+            datum=Y_MAX,
+            scale=altair.Scale(
+                domain=[Y_MIN, Y_MAX],
+                nice=False
+            )
+        ),
+        y2=altair.datum(Y_MIN),
         tooltip=[
             altair.Tooltip(
                 "hour:N",
                 title="Hour"
             ),
             altair.Tooltip(
-                "Series:N",
-                title="Series"
+                "Historical data:Q",
+                title="Historical consumption (MW)",
+                format=",.0f"
             ),
             altair.Tooltip(
-                "Consumption (MW):Q",
-                title="Consumption (MW)",
+                "Predicted values:Q",
+                title="Predicted consumption (MW)",
                 format=",.0f"
             )
         ]
@@ -424,15 +614,18 @@ mouse_detector = (
 )
 
 
-# Assemblage des couches du graphique.
+# Assemblage des couches.
 chart = (
     altair.layer(
         historical_area,
         lines,
         last_prediction_outer_ring,
         last_prediction_inner_dot,
-        horizontal_rules,
+        vertical_rule,
         selected_points,
+        indicator_titles,
+        historical_indicator_value,
+        prediction_indicator_value,
         mouse_detector
     )
     .properties(
@@ -444,14 +637,8 @@ chart = (
 # Affichage du graphique.
 st.altair_chart(
     chart,
-    use_container_width=True
+    width='stretch'
 )
-
-
-#################################################################
-
-
-
 
 
 # ################ Tableaux de contrôle facultatifs. #######################
@@ -473,4 +660,3 @@ with st.expander("Afficher les données techniques"):
         df,
         use_container_width=True
     )
-# --------------------------------------------------------------------------
