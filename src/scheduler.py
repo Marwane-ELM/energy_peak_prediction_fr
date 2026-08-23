@@ -76,7 +76,7 @@ if __name__ == "__main__":
         run_pipeline,
         "cron",
         max_instances=1,
-        minute="10,40"
+        minute="10,40,51"
     )
 
     scheduler.start()

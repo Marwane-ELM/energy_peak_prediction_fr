@@ -131,8 +131,11 @@ def predict():
     df = fe.lagged_trend(df)
     df = fe.seasons_linear(df)
 
+
+    france_tz = pytz.timezone("Europe/Paris")
+    current_time = datetime.now(france_tz)
     # We extract the today's historical electricity consumption values to store them in the database
-    hist_today = df[df["full_date"].dt.date == datetime.now().date()][["full_date", "Consommation"]].iloc[:-1, :]    
+    hist_today = df[df["full_date"].dt.date == current_time.date()][["full_date", "Consommation"]].iloc[:-1, :]    
     df = df.drop(["Consommation"], axis=1)
 
     # --- Input dataframe ---
@@ -274,8 +277,6 @@ def predict():
         password = "postmdp"   
     )
 
-    france_tz = pytz.timezone("Europe/Paris")
-    current_time = datetime.now(france_tz)
     
     with conn.cursor() as cursor:
 
