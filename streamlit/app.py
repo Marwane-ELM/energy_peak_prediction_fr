@@ -26,7 +26,7 @@ st.markdown(
     <style>
         .pikelek-header {
             margin-top: -0.8rem;
-            margin-bottom: 1.6rem;
+            margin-bottom: 3.6rem;
             line-height: 1;
         }
 
@@ -74,7 +74,7 @@ try:
     api_data = response.json()
 
 except requests.RequestException as error:
-    st.error(f"Impossible de contacter l'API : {error}")
+    st.error(f"Impossible to retreive data from the API : {error}")
     st.stop()
 
 
@@ -170,8 +170,8 @@ Y_MAX = 58000
 # Position verticale des indicateurs en haut à gauche.
 # Ces positions font partie du domaine Y existant :
 # elles ne modifient ni la taille, ni les axes du graphique.
-INDICATOR_TITLE_Y = 57400
-INDICATOR_VALUE_Y = 55700
+INDICATOR_TITLE_Y = 60000
+INDICATOR_VALUE_Y = 58000
 
 
 def format_consumption(value):
@@ -179,7 +179,7 @@ def format_consumption(value):
     Formate une valeur de consommation pour l'affichage.
     """
     if pd.isna(value):
-        return "Indisponible"
+        return "Unavailable"
 
     return f"{value:,.0f} MW".replace(",", " ")
 
@@ -210,8 +210,8 @@ indicator_titles_df = pd.DataFrame(
             "05:00"
         ],
         "label": [
-            "● Consommation historique",
-            "● Prédiction"
+            "● Historical Consumption Data",
+            "● Consumption Forecasts"
         ],
         "indicator_type": [
             "Historical",
@@ -628,8 +628,11 @@ chart = (
         prediction_indicator_value,
         mouse_detector
     )
+    .resolve_scale(
+        color="independent"
+    )
     .properties(
-        height=450
+        height=520
     )
 )
 
@@ -637,7 +640,7 @@ chart = (
 # Affichage du graphique.
 st.altair_chart(
     chart,
-    width='stretch'
+    width="stretch"
 )
 
 
