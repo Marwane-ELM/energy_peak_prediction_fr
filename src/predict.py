@@ -42,12 +42,18 @@ def predict():
 #----- Adding lagged consumtion features (lag-1, lag-2, lag-48...)-----
     df = fe.lagged_consumption(df)
     
-    t = df["Heures"].iloc[-2]  
-    new_time = (datetime.combine(datetime.today(), t) + timedelta(minutes=30)).time()
+    last_date = df["Date"].iloc[-2]
+    last_time = df["Heures"].iloc[-2]
     
-    df.loc[len(df)-1, "Heures"] = new_time
-    df.loc[len(df)-1, "Date"] = datetime.today().strftime('%Y-%m-%d')
-
+    last_datetime = datetime.combine(
+        pd.to_datetime(last_date).date(),
+        last_time
+    )
+    
+    new_datetime = last_datetime + timedelta(minutes=30)
+    
+    df.loc[len(df)-1, "Date"] = new_datetime.strftime("%Y-%m-%d")
+    df.loc[len(df)-1, "Heures"] = new_datetime.time()
 
 #----- Adding the infos about the holidays -----
     today = date.today().isoformat()
@@ -296,9 +302,12 @@ def predict():
         
         
         # If it's midnight we delete all the predicted values
-        if current_time.hour == 00 and current_time.minute == 00:
+        if current_time.hour == 00 and current_time.minute == 10:
             cursor.execute("""
             TRUNCATE TABLE forecasts;
+            """)
+            cursor.execute("""
+            TRUNCATE TABLE historical;
             """)
         
         # We delete in the db the rows with a horizon > 0 (from horizon 1 to 9)

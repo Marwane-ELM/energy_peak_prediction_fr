@@ -3,6 +3,8 @@ import altair
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
 import requests
+#import pytz
+#from datetime import datetime
 
 
 # Doit être le premier appel Streamlit.
@@ -649,17 +651,17 @@ with st.expander("Afficher les données techniques"):
     st.subheader("Données historiques")
     st.dataframe(
         historical,
-        use_container_width=True
+        width='stretch'
     )
 
     st.subheader("Prédictions")
     st.dataframe(
         predictions,
-        use_container_width=True
+        width='stretch'
     )
 
     st.subheader("Données fusionnées utilisées par le graphique")
     st.dataframe(
         df,
-        use_container_width=True
+        width='stretch'
     )
