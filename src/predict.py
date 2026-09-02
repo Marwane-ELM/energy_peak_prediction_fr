@@ -92,7 +92,21 @@ def predict():
         params = {
             "where": f"start_date <= date'{today}' AND end_date >= date'{today}' AND zones = 'Zone {z}'"
         }
-        response = requests.get(url, params=params).json()
+        
+    while True:
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()  # Vérifie les erreurs HTTP : 404, 500, etc.
+    
+            data = response.json()
+            break  # La requête a réussi → on sort de la boucle
+    
+        except requests.RequestException as error:
+            print(f"An error occured with the datagouv API : {error}")
+            time.sleep(5)  # Attend 5 secondes avant de réessayer
+
+
+            
         # If no holidays we set the columns with the value 0
         if response["total_count"] == 0:
             continue
@@ -312,8 +326,6 @@ def predict():
             """)
         
         # We delete in the db the rows with a horizon > 0 (from horizon 1 to 9)
-        time_db_delete = current_time.replace(second=0, microsecond=0)
-        time_db_delete = time_db_delete + timedelta(minutes=30)
         cursor.execute("""
         DELETE FROM forecasts
         WHERE horizon > 0;
@@ -349,6 +361,7 @@ def predict():
     
     conn.commit()
     conn.close()
+    return (True, "Nice!")
 
 
 

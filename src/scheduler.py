@@ -66,17 +66,20 @@ def run_pipeline():
 
     print("The dataset has been saved successfully")
 
-    pr.predict()
-
-    print("The database has been updated with success")
+    boolean, message = pr.predict()
+    if boolean == True:
+        print("The database has been updated with success")
+    else : 
+        print("The database wasn't updated\n")
+        print(message)
 
 if __name__ == "__main__":
-
+    print("scheduler waiting in background")
     scheduler.add_job(
         run_pipeline,
         "cron",
         max_instances=1,
-        minute="10,40,51"
+        minute="10,57"
     )
 
     scheduler.start()
