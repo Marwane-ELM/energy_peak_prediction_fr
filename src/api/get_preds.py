@@ -105,7 +105,9 @@ def get_peak():
             
             df_pred = pd.DataFrame(np.array(predictions), columns=["time", "pred"])
             df_pred = df_pred.sort_values(by="time", ascending=False)
-            df_pred = df_pred.iloc[:10]
+
+            df_pred = df_pred[df_pred["time"].dt.hour > datetime.now(france_tz).hour]
+            #df_pred = df_pred.iloc[:10]
             df_pred = df_pred.sort_values(by="pred")
             df_pred = df_pred.reset_index(drop=True)
     
@@ -169,7 +171,7 @@ def get_peak():
             # Spike Detection
             y = np.insert(y, 0, y_0)
             diffs = np.diff(y)
-            idx_max_diff = np.argmax(diffs) + 1
+            idx_max_diff = np.argmax(diffs)
             
             df_pred = df_pred.sort_values(by="time").reset_index(drop=True)
             y_spike = df_pred["pred"].iloc[idx_max_diff]

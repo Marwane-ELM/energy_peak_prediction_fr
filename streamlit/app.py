@@ -1,75 +1,156 @@
-import streamlit as st
+import re
+from html import escape
+
 import altair
 import pandas as pd
-from streamlit_autorefresh import st_autorefresh
 import requests
-from html import escape
-import re
-
-#import pytz
-#from datetime import datetime
+import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 
-# Doit être le premier appel Streamlit.
+# Must be the first Streamlit call.
 st.set_page_config(
     layout="wide",
     page_title="PikElek AI",
     page_icon="⚡"
 )
 
+# -------------------------------------------------------------------------
+# Remove Streamlit's default header, toolbar, menu and top gap
+# -------------------------------------------------------------------------
 
-# Rafraîchissement automatique toutes les 10 secondes.
+st.markdown(
+    """
+    <style>
+        /*
+        Remove Streamlit's complete top header.
+        */
+        [data-testid="stHeader"] {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+        }
+
+        /*
+        Remove the toolbar containing Deploy, Rerun and other buttons.
+        */
+        [data-testid="stToolbar"] {
+            display: none !important;
+        }
+
+        /*
+        Remove the Deploy button if Streamlit renders it separately.
+        */
+        [data-testid="stAppDeployButton"] {
+            display: none !important;
+        }
+
+        /*
+        Remove the three-dot Streamlit menu.
+        */
+        #MainMenu {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        /*
+        Remove Streamlit's colored decoration line.
+        */
+        [data-testid="stDecoration"] {
+            display: none !important;
+        }
+
+        /*
+        Remove Streamlit's running/status indicator from the header.
+        */
+        [data-testid="stStatusWidget"] {
+            display: none !important;
+        }
+
+        /*
+        Reduce the empty space left after removing the header.
+
+        Increase this value if your logo becomes too close to the top.
+        For example: 1.5rem or 2rem.
+        */
+        [data-testid="stMainBlockContainer"],
+        .block-container {
+            padding-top: 1rem !important;
+        }
+
+        /*
+        Smaller top spacing on mobile screens.
+        */
+        @media (max-width: 600px) {
+            [data-testid="stMainBlockContainer"],
+            .block-container {
+                padding-top: 0.75rem !important;
+            }
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# Automatic refresh every 20 seconds.
 refresh_count = st_autorefresh(
     interval=20_000,
     key="forecast_auto_refresh"
 )
 
 
-# Style et logo texte de l'application.
+# -------------------------------------------------------------------------
+# Application header
+# -------------------------------------------------------------------------
+
 st.markdown(
     """
-    <style>
-        .pikelek-header {
-            margin-top: -0.8rem;
-            margin-bottom: 3.6rem;
-            line-height: 1;
-        }
-
-        .pikelek-logo {
-            color: #8acaff;
-            font-size: 2rem;
-            font-weight: 800;
-            letter-spacing: -0.06rem;
-        }
-
-        .pikelek-logo-ai {
-            color: #F28E2B;
-        }
-
-        .pikelek-tagline {
-            margin-top: 0.25rem;
-            color: #7A8594;
-            font-size: 0.68rem;
-            font-weight: 500;
-            letter-spacing: 0.04rem;
-            text-transform: uppercase;
-        }
-    </style>
-
-    <div class="pikelek-header">
-        <div class="pikelek-logo">
-            PikElek<span class="pikelek-logo-ai">.AI</span>
+        <style>
+            .pikelek-header {
+                margin-top: -0.8rem;
+                margin-bottom: 3.6rem;
+                line-height: 1;
+            }
+    
+            .pikelek-logo {
+                color: #8acaff;
+                font-size: 2rem;
+                font-weight: 800;
+                letter-spacing: -0.06rem;
+            }
+    
+            .pikelek-logo-ai {
+                color: #F28E2B;
+            }
+    
+            .pikelek-tagline {
+                margin-top: 0.25rem;
+                color: #7A8594;
+                font-size: 0.68rem;
+                font-weight: 500;
+                letter-spacing: 0.04rem;
+                text-transform: uppercase;
+            }
+        </style>
+    
+        <div class="pikelek-header">
+            <div class="pikelek-logo">
+                PikElek<span class="pikelek-logo-ai">.AI</span>
+            </div>
+            <div class="pikelek-tagline">
+                Electricity Peak and Consumption Forecasts
+            </div>
         </div>
-        <div class="pikelek-tagline">
-            Electricity Peak and Consumption Forecasts
-        </div>
-    </div>
     """,
     unsafe_allow_html=True
 )
 
 
-# Récupération des données depuis l'API FastAPI.
+# -------------------------------------------------------------------------
+# Retrieve prediction data
+# -------------------------------------------------------------------------
+
 try:
     response = requests.get(
         "http://127.0.0.1:8000/predict",
@@ -79,28 +160,43 @@ try:
     api_data = response.json()
 
 except requests.RequestException as error:
-    st.error(f"Impossible to retreive data from the API : {error}")
+    st.error(
+        f"Impossible to retrieve prediction data from the API: {error}"
+    )
     st.stop()
 
 
-# Création des DataFrames.
+# -------------------------------------------------------------------------
+# Create prediction DataFrames
+# -------------------------------------------------------------------------
+
 historical = pd.DataFrame(
     api_data["historical"],
-    columns=["timestamp", "hist_consumption_mw"]
+    columns=[
+        "timestamp",
+        "hist_consumption_mw"
+    ]
 )
 
 predictions = pd.DataFrame(
     api_data["predictions"],
-    columns=["timestamp", "consumption_mw"]
+    columns=[
+        "timestamp",
+        "consumption_mw"
+    ]
 )
 
 
-# Conversion des timestamps.
-historical["timestamp"] = pd.to_datetime(historical["timestamp"])
-predictions["timestamp"] = pd.to_datetime(predictions["timestamp"])
+historical["timestamp"] = pd.to_datetime(
+    historical["timestamp"]
+)
+
+predictions["timestamp"] = pd.to_datetime(
+    predictions["timestamp"]
+)
 
 
-# Toutes les demi-heures de la journée affichées sur le graphique.
+# All half-hour periods displayed on the chart.
 full_hours = pd.date_range(
     start="00:00",
     end="23:30",
@@ -108,22 +204,28 @@ full_hours = pd.date_range(
 ).strftime("%H:%M")
 
 
-def prepare_hourly_series(dataframe, value_column, output_column):
+def prepare_hourly_series(
+    dataframe,
+    value_column,
+    output_column
+):
     """
-    Crée une série contenant une valeur unique pour chaque heure.
+    Creates a series containing one value for each half-hour period.
 
-    Si l'API retourne plusieurs lignes avec la même heure, seule la valeur
-    du timestamp le plus récent est conservée.
+    If the API returns multiple rows for the same displayed time,
+    the value with the most recent timestamp is retained.
     """
     dataframe = dataframe.copy()
 
-    # Heure utilisée pour l'affichage : 00:00, 00:30, ..., 23:30.
-    dataframe["hour"] = dataframe["timestamp"].dt.strftime("%H:%M")
+    dataframe["hour"] = (
+        dataframe["timestamp"]
+        .dt.strftime("%H:%M")
+    )
 
-    # Garantit que keep="last" correspond au timestamp le plus récent.
-    dataframe = dataframe.sort_values("timestamp")
+    dataframe = dataframe.sort_values(
+        "timestamp"
+    )
 
-    # Une seule valeur par heure.
     dataframe = dataframe.drop_duplicates(
         subset="hour",
         keep="last"
@@ -136,7 +238,6 @@ def prepare_hourly_series(dataframe, value_column, output_column):
     )
 
 
-# Préparation des deux séries avec des index horaires uniques.
 historical_series = prepare_hourly_series(
     dataframe=historical,
     value_column="hist_consumption_mw",
@@ -150,7 +251,6 @@ predictions_series = prepare_hourly_series(
 )
 
 
-# Fusion de l'historique et des prédictions.
 df = pd.concat(
     [
         historical_series,
@@ -160,28 +260,40 @@ df = pd.concat(
 )
 
 
-# S'assure que toutes les demi-heures existent dans le tableau.
+# Ensure that all half-hour periods exist.
 df = df.reindex(full_hours)
 df.index.name = "hour"
 
 
-# ###################### SETTING UP THE GRAPH #########################
+# =========================================================================
+# CHART CONFIGURATION
+# =========================================================================
 
-# Limites fixes de l'axe vertical.
+# Vertical axis limits.
 Y_MIN = 28000
-Y_MAX = 58000
+Y_MAX = 59000
 
+# Reduced chart height.
+CHART_HEIGHT = 430
 
-# Position verticale des indicateurs en haut à gauche.
-# Ces positions font partie du domaine Y existant :
-# elles ne modifient ni la taille, ni les axes du graphique.
-INDICATOR_TITLE_Y = 60000
-INDICATOR_VALUE_Y = 58000
+# Explicit horizontal grid-line positions.
+# Change this list if you want more or fewer horizontal lines.
+Y_GRID_VALUES = [
+    28000,
+    35000,
+    42000,
+    50000,
+    58000
+]
+
+# Indicator positions adjusted for the smaller chart.
+INDICATOR_TITLE_Y = 62000
+INDICATOR_VALUE_Y = 60000
 
 
 def format_consumption(value):
     """
-    Formate une valeur de consommation pour l'affichage.
+    Formats a consumption value for display.
     """
     if pd.isna(value):
         return "Unavailable"
@@ -189,25 +301,26 @@ def format_consumption(value):
     return f"{value:,.0f} MW".replace(",", " ")
 
 
-# DataFrame au format large :
-# une ligne par heure, contenant la valeur historique et prédite.
-# Il est utilisé pour la sélection de souris et les indicateurs dynamiques.
+# -------------------------------------------------------------------------
+# Prepare chart data
+# -------------------------------------------------------------------------
+
 hover_df = df.reset_index().copy()
 
-hover_df["Historical value label"] = hover_df["Historical data"].apply(
-    format_consumption
+hover_df["Historical value label"] = (
+    hover_df["Historical data"]
+    .apply(format_consumption)
 )
 
-hover_df["Prediction value label"] = hover_df["Predicted values"].apply(
-    format_consumption
+hover_df["Prediction value label"] = (
+    hover_df["Predicted values"]
+    .apply(format_consumption)
 )
 
-# Position horizontale fixe des indicateurs dans le coin supérieur gauche.
 hover_df["historical_indicator_hour"] = "00:30"
 hover_df["prediction_indicator_hour"] = "05:00"
 
 
-# Libellés fixes visibles en permanence.
 indicator_titles_df = pd.DataFrame(
     {
         "hour": [
@@ -230,7 +343,6 @@ indicator_titles_df = pd.DataFrame(
 )
 
 
-# DataFrame au format long, utilisé par les courbes Altair.
 chart_df = (
     df.reset_index()
     .melt(
@@ -238,11 +350,13 @@ chart_df = (
         var_name="Series",
         value_name="Consumption (MW)"
     )
-    .dropna(subset=["Consumption (MW)"])
+    .dropna(
+        subset=["Consumption (MW)"]
+    )
 )
 
 
-# Dernière prédiction chronologique retournée par l'API.
+# Last chronological prediction returned by the API.
 if predictions.empty:
     last_prediction_df = pd.DataFrame(
         columns=[
@@ -254,15 +368,28 @@ if predictions.empty:
 
 else:
     last_prediction_timestamp = predictions["timestamp"].max()
-    last_prediction_hour = last_prediction_timestamp.strftime("%H:%M")
+
+    last_prediction_hour = (
+        last_prediction_timestamp
+        .strftime("%H:%M")
+    )
 
     last_prediction_df = chart_df[
-        (chart_df["Series"] == "Predicted values")
-        & (chart_df["hour"] == last_prediction_hour)
+        (
+            chart_df["Series"]
+            == "Predicted values"
+        )
+        & (
+            chart_df["hour"]
+            == last_prediction_hour
+        )
     ].copy()
 
 
-# Couleurs des courbes.
+# -------------------------------------------------------------------------
+# Chart colors
+# -------------------------------------------------------------------------
+
 series_colors = altair.Scale(
     domain=[
         "Historical data",
@@ -275,7 +402,6 @@ series_colors = altair.Scale(
 )
 
 
-# Dégradé de la zone historique.
 historical_gradient = altair.Gradient(
     gradient="linear",
     x1=0,
@@ -299,8 +425,10 @@ historical_gradient = altair.Gradient(
 )
 
 
-# Sélection de l'heure survolée.
-# La sélection se fait sur l'heure uniquement, pas sur la hauteur du curseur.
+# -------------------------------------------------------------------------
+# Hover selection
+# -------------------------------------------------------------------------
+
 hover = altair.selection_point(
     fields=["hour"],
     on="pointermove",
@@ -310,8 +438,13 @@ hover = altair.selection_point(
 )
 
 
-# Encodages communs des courbes.
-base = altair.Chart(chart_df).encode(
+# -------------------------------------------------------------------------
+# Shared chart encodings
+# -------------------------------------------------------------------------
+
+base = altair.Chart(
+    chart_df
+).encode(
     x=altair.X(
         "hour:N",
         title="Hour",
@@ -319,24 +452,47 @@ base = altair.Chart(chart_df).encode(
             domain=full_hours.tolist()
         ),
         axis=altair.Axis(
-            labelAngle=-90
+            labelAngle=-90,
+            labelPadding=6,
+            tickSize=4
         )
     ),
     y=altair.Y(
         "Consumption (MW):Q",
         title="",
         scale=altair.Scale(
-            domain=[Y_MIN, Y_MAX],
+            domain=[
+                Y_MIN,
+                Y_MAX
+            ],
             nice=False
+        ),
+        axis=altair.Axis(
+            # Only these values receive ticks and horizontal grid lines.
+            values=Y_GRID_VALUES,
+            format=",.0f",
+            grid=True,
+            gridColor="#FFFFFF",
+            gridOpacity=0.12,
+            gridWidth=1,
+            tickColor="#7A8594",
+            domainColor="#7A8594",
+            labelColor="#AAB4C2",
+            labelPadding=8
         )
     )
 )
 
 
-# Zone remplie sous la courbe historique.
+# -------------------------------------------------------------------------
+# Historical area
+# -------------------------------------------------------------------------
+
 historical_area = (
-    base.transform_filter(
-        altair.datum.Series == "Historical data"
+    base
+    .transform_filter(
+        altair.datum.Series
+        == "Historical data"
     )
     .mark_area(
         color=historical_gradient,
@@ -349,9 +505,13 @@ historical_area = (
 )
 
 
-# Courbes historique et prédite.
+# -------------------------------------------------------------------------
+# Historical and prediction lines
+# -------------------------------------------------------------------------
+
 lines = (
-    base.mark_line(
+    base
+    .mark_line(
         strokeWidth=2.5,
         clip=True
     )
@@ -367,9 +527,14 @@ lines = (
 )
 
 
-# Anneau orange clair autour de la dernière prédiction.
+# -------------------------------------------------------------------------
+# Last prediction marker
+# -------------------------------------------------------------------------
+
 last_prediction_outer_ring = (
-    altair.Chart(last_prediction_df)
+    altair.Chart(
+        last_prediction_df
+    )
     .mark_circle(
         size=320,
         color="#FFD6AD",
@@ -386,7 +551,10 @@ last_prediction_outer_ring = (
         y=altair.Y(
             "Consumption (MW):Q",
             scale=altair.Scale(
-                domain=[Y_MIN, Y_MAX],
+                domain=[
+                    Y_MIN,
+                    Y_MAX
+                ],
                 nice=False
             )
         )
@@ -394,9 +562,10 @@ last_prediction_outer_ring = (
 )
 
 
-# Point orange central de la dernière prédiction.
 last_prediction_inner_dot = (
-    altair.Chart(last_prediction_df)
+    altair.Chart(
+        last_prediction_df
+    )
     .mark_circle(
         size=100,
         color="#F28E2B",
@@ -412,7 +581,10 @@ last_prediction_inner_dot = (
         y=altair.Y(
             "Consumption (MW):Q",
             scale=altair.Scale(
-                domain=[Y_MIN, Y_MAX],
+                domain=[
+                    Y_MIN,
+                    Y_MAX
+                ],
                 nice=False
             )
         )
@@ -420,11 +592,16 @@ last_prediction_inner_dot = (
 )
 
 
-# Ligne verticale qui traverse toute la hauteur du graphique.
+# -------------------------------------------------------------------------
+# Hover rule
+# -------------------------------------------------------------------------
+
 vertical_rule = (
-    altair.Chart(hover_df)
+    altair.Chart(
+        hover_df
+    )
     .mark_rule(
-        color="#ffffff",
+        color="#FFFFFF",
         strokeDash=[5, 4],
         strokeWidth=1.5
     )
@@ -444,9 +621,13 @@ vertical_rule = (
 )
 
 
-# Points visibles sur les deux courbes à l'heure survolée.
+# -------------------------------------------------------------------------
+# Hover points
+# -------------------------------------------------------------------------
+
 selected_points = (
-    base.mark_circle(
+    base
+    .mark_circle(
         size=115,
         filled=True,
         stroke="white",
@@ -467,9 +648,14 @@ selected_points = (
 )
 
 
-# Libellés fixes : historique et prédiction.
+# -------------------------------------------------------------------------
+# Indicator titles
+# -------------------------------------------------------------------------
+
 indicator_titles = (
-    altair.Chart(indicator_titles_df)
+    altair.Chart(
+        indicator_titles_df
+    )
     .mark_text(
         fontSize=13,
         fontWeight="bold",
@@ -486,7 +672,10 @@ indicator_titles = (
         y=altair.Y(
             "y:Q",
             scale=altair.Scale(
-                domain=[Y_MIN, Y_MAX],
+                domain=[
+                    Y_MIN,
+                    Y_MAX
+                ],
                 nice=False
             )
         ),
@@ -501,7 +690,7 @@ indicator_titles = (
                     "Prediction"
                 ],
                 range=[
-                    "#2b61ba",
+                    "#2B61BA",
                     "#F28E2B"
                 ]
             ),
@@ -511,13 +700,20 @@ indicator_titles = (
 )
 
 
-# Valeur historique qui se met à jour au survol.
+# -------------------------------------------------------------------------
+# Dynamic indicator values
+# -------------------------------------------------------------------------
+
 historical_indicator_value = (
-    altair.Chart(hover_df)
-    .transform_filter(hover)
+    altair.Chart(
+        hover_df
+    )
+    .transform_filter(
+        hover
+    )
     .mark_text(
         fontSize=14,
-        color="#ffffff",
+        color="#FFFFFF",
         align="left",
         baseline="middle"
     )
@@ -531,7 +727,10 @@ historical_indicator_value = (
         y=altair.Y(
             datum=INDICATOR_VALUE_Y,
             scale=altair.Scale(
-                domain=[Y_MIN, Y_MAX],
+                domain=[
+                    Y_MIN,
+                    Y_MAX
+                ],
                 nice=False
             )
         ),
@@ -542,13 +741,16 @@ historical_indicator_value = (
 )
 
 
-# Valeur prédite qui se met à jour au survol.
 prediction_indicator_value = (
-    altair.Chart(hover_df)
-    .transform_filter(hover)
+    altair.Chart(
+        hover_df
+    )
+    .transform_filter(
+        hover
+    )
     .mark_text(
         fontSize=14,
-        color="#ffffff",
+        color="#FFFFFF",
         align="left",
         baseline="middle"
     )
@@ -562,7 +764,10 @@ prediction_indicator_value = (
         y=altair.Y(
             datum=INDICATOR_VALUE_Y,
             scale=altair.Scale(
-                domain=[Y_MIN, Y_MAX],
+                domain=[
+                    Y_MIN,
+                    Y_MAX
+                ],
                 nice=False
             )
         ),
@@ -573,10 +778,14 @@ prediction_indicator_value = (
 )
 
 
-# Zone invisible couvrant toute la hauteur du graphique.
-# Chaque bande verticale correspond à une demi-heure.
+# -------------------------------------------------------------------------
+# Invisible mouse detection area
+# -------------------------------------------------------------------------
+
 mouse_detector = (
-    altair.Chart(hover_df)
+    altair.Chart(
+        hover_df
+    )
     .mark_rect(
         opacity=0.001
     )
@@ -590,7 +799,10 @@ mouse_detector = (
         y=altair.Y(
             datum=Y_MAX,
             scale=altair.Scale(
-                domain=[Y_MIN, Y_MAX],
+                domain=[
+                    Y_MIN,
+                    Y_MAX
+                ],
                 nice=False
             )
         ),
@@ -612,11 +824,16 @@ mouse_detector = (
             )
         ]
     )
-    .add_params(hover)
+    .add_params(
+        hover
+    )
 )
 
 
-# Assemblage des couches.
+# -------------------------------------------------------------------------
+# Assemble and display chart
+# -------------------------------------------------------------------------
+
 chart = (
     altair.layer(
         historical_area,
@@ -634,24 +851,23 @@ chart = (
         color="independent"
     )
     .properties(
-        height=520
+        height=CHART_HEIGHT
+    )
+    .configure_view(
+        stroke=None
     )
 )
 
 
-# Affichage du graphique.
 st.altair_chart(
     chart,
     width="stretch"
 )
-################################ END OF CHART ####################################
-#################################################################################
 
 
-
-
-# ----- Infos about the electricty demand ---------
-
+# =========================================================================
+# ELECTRICITY DEMAND INFORMATION
+# =========================================================================
 
 try:
     response2 = requests.get(
@@ -662,13 +878,11 @@ try:
     api_data2 = response2.json()
 
 except requests.RequestException as error:
-    st.error(f"Impossible to retreive electricty demand data from the API : {error}")
+    st.error(
+        f"Impossible to retrieve electricity demand data from the API: "
+        f"{error}"
+    )
     st.stop()
-
-
-###########################################################################
-######################### Forecasts details ###############################
-###########################################################################
 
 
 # -------------------------------------------------------------------------
@@ -679,30 +893,44 @@ def get_api_values(values, expected_size):
     """
     Always returns the expected number of elements.
     """
-    if not isinstance(values, (list, tuple)):
+    if not isinstance(
+        values,
+        (list, tuple)
+    ):
         values = []
 
     values = list(values)
-    values.extend([None] * max(0, expected_size - len(values)))
+
+    values.extend(
+        [None] * max(
+            0,
+            expected_size - len(values)
+        )
+    )
 
     return values[:expected_size]
 
 
 def get_first_value(value, default=None):
     """
-    Retrieves the first value when the API returns a list/tuple.
+    Retrieves the first value when the API returns a list or tuple.
     Otherwise, returns the value directly.
-
-    Examples:
-    - True -> True
-    - [True] -> True
-    - [] -> default
-    - None -> default
     """
-    if isinstance(value, (list, tuple)):
-        return value[0] if len(value) > 0 else default
+    if isinstance(
+        value,
+        (list, tuple)
+    ):
+        return (
+            value[0]
+            if len(value) > 0
+            else default
+        )
 
-    return value if value is not None else default
+    return (
+        value
+        if value is not None
+        else default
+    )
 
 
 def as_boolean(value):
@@ -724,7 +952,10 @@ def as_boolean(value):
             "y"
         }
 
-    if isinstance(value, (int, float)):
+    if isinstance(
+        value,
+        (int, float)
+    ):
         return value != 0
 
     return bool(value)
@@ -755,7 +986,10 @@ def translate_level(value):
     """
     Translates common demand levels returned by the API into English.
     """
-    if value is None or str(value).strip() == "":
+    if (
+        value is None
+        or str(value).strip() == ""
+    ):
         return "Not available"
 
     original_value = str(value).strip()
@@ -794,7 +1028,9 @@ def translate_level(value):
         original_value
     )
 
-    return escape(translated_value)
+    return escape(
+        translated_value
+    )
 
 
 def format_mw(value):
@@ -846,13 +1082,18 @@ def format_forecast_datetime(value):
     """
     Separates the forecast time and date.
     """
-    if value is None or str(value).strip() == "":
+    if (
+        value is None
+        or str(value).strip() == ""
+    ):
         return "—", "Time unavailable"
 
     raw_value = str(value).strip()
 
-    # The API returned a time without a date.
-    if re.fullmatch(r"\d{1,2}:\d{2}(?::\d{2})?", raw_value):
+    if re.fullmatch(
+        r"\d{1,2}:\d{2}(?::\d{2})?",
+        raw_value
+    ):
         time_parts = raw_value.split(":")
 
         formatted_time = (
@@ -868,7 +1109,10 @@ def format_forecast_datetime(value):
     )
 
     if pd.isna(parsed_value):
-        return escape(raw_value), "Forecast time"
+        return (
+            escape(raw_value),
+            "Forecast time"
+        )
 
     return (
         parsed_value.strftime("%H:%M"),
@@ -877,19 +1121,17 @@ def format_forecast_datetime(value):
 
 
 # -------------------------------------------------------------------------
-# Read API data
+# Read demand API data
 # -------------------------------------------------------------------------
 
-
-# Important:
-# `ready` peut être True/False ou [True]/[False] selon ton API.
-# On récupère donc sa vraie valeur booléenne.
 validation_value = get_first_value(
     api_data2.get("ready"),
     default=False
 )
 
-validation = as_boolean(validation_value)
+validation = as_boolean(
+    validation_value
+)
 
 
 # -------------------------------------------------------------------------
@@ -902,6 +1144,7 @@ cards_css = """
         width: 100%;
         margin-top: 1.5rem;
         margin-bottom: 2.5rem;
+
         font-family:
             Inter,
             ui-sans-serif,
@@ -1067,7 +1310,6 @@ cards_css = """
         box-shadow: 0 0 16px var(--card-color);
     }
 
-    /* Active card colors */
     .pikelek-insight-card.trend-up {
         --card-color: #F28E2B;
         --card-border: rgba(242, 142, 43, 0.46);
@@ -1111,14 +1353,12 @@ cards_css = """
         --card-glow: rgba(127, 139, 157, 0.10);
     }
 
-    /* Disabled cards when the analysis service is not ready */
     .pikelek-insight-card.service-unavailable-card {
         --card-color: #667085;
         --card-border: rgba(148, 163, 184, 0.20);
         --card-glow: rgba(100, 116, 139, 0.08);
 
         cursor: not-allowed;
-
         border-color: rgba(148, 163, 184, 0.17);
 
         background:
@@ -1158,9 +1398,12 @@ cards_css = """
         color: #94A3B8;
     }
 
-    .pikelek-insight-card.service-unavailable-card .pikelek-card-description,
-    .pikelek-insight-card.service-unavailable-card .pikelek-card-eyebrow,
-    .pikelek-insight-card.service-unavailable-card .pikelek-card-info-label {
+    .pikelek-insight-card.service-unavailable-card
+    .pikelek-card-description,
+    .pikelek-insight-card.service-unavailable-card
+    .pikelek-card-eyebrow,
+    .pikelek-insight-card.service-unavailable-card
+    .pikelek-card-info-label {
         color: #667085;
     }
 
@@ -1328,28 +1571,29 @@ cards_css = """
 
 
 # -------------------------------------------------------------------------
-# Values when the service is available
+# Values when the demand analysis service is available
 # -------------------------------------------------------------------------
 
-# If the prediction data is available we retreive data from the database
-# Otherwise, we do nothiong and display on the screen a temporary message showing an unavailability message
 if validation:
     highest_value_data = get_api_values(
         api_data2.get("highest_value"),
         4
     )
-    
+
     slope_data = get_api_values(
         api_data2.get("slope"),
         2
     )
-    
+
     spike_data = get_api_values(
         api_data2.get("spike"),
         3
     )
 
-    bool_increase = as_boolean(highest_value_data[0])
+    bool_increase = as_boolean(
+        highest_value_data[0]
+    )
+
     y_max = highest_value_data[1]
     time_y_max = highest_value_data[2]
     percentage_increase = highest_value_data[3]
@@ -1357,15 +1601,18 @@ if validation:
     slope_rate = slope_data[0]
     slope_level = slope_data[1]
 
-    bool_spike = as_boolean(spike_data[0])
+    bool_spike = as_boolean(
+        spike_data[0]
+    )
+
     y_spike = spike_data[1]
     y_spike_time = spike_data[2]
 
-    # ---------------------------------------------------------------------
-    # Consumption trend information
-    # ---------------------------------------------------------------------
 
-    slope_number = as_number(slope_rate)
+    # Consumption trend.
+    slope_number = as_number(
+        slope_rate
+    )
 
     if slope_number is None:
         trend_title = "Trend unavailable"
@@ -1391,17 +1638,19 @@ if validation:
         trend_class = "trend-stable"
         trend_badge = "Stable trend"
 
-    slope_level_label = translate_level(slope_level)
+    slope_level_label = translate_level(
+        slope_level
+    )
 
-    # ---------------------------------------------------------------------
-    # Energy spike information
-    # ---------------------------------------------------------------------
 
+    # Energy spike.
     if bool_spike:
         spike_title = "Energy spike detected"
         spike_class = "spike-detected"
         spike_badge = "Active alert"
-        spike_value = format_mw(y_spike)
+        spike_value = format_mw(
+            y_spike
+        )
 
         spike_time, spike_date = format_forecast_datetime(
             y_spike_time
@@ -1424,15 +1673,16 @@ if validation:
             "No energy consumption spike is expected."
         )
 
-    # ---------------------------------------------------------------------
-    # Maximum forecast information
-    # ---------------------------------------------------------------------
 
+    # Maximum forecast.
     if bool_increase:
         maximum_title = "Forecast maximum"
         maximum_class = "maximum-available"
         maximum_badge = "Highest point"
-        maximum_value = format_mw(y_max)
+
+        maximum_value = format_mw(
+            y_max
+        )
 
         maximum_time, maximum_date = format_forecast_datetime(
             time_y_max
@@ -1455,7 +1705,7 @@ if validation:
 
 
 # -------------------------------------------------------------------------
-# Values when the service is unavailable
+# Values when the demand analysis service is unavailable
 # -------------------------------------------------------------------------
 
 else:
@@ -1526,7 +1776,6 @@ cards_html = f"""
 
     <div class="pikelek-insights-grid">
 
-        <!-- Consumption trend card -->
         <article class="pikelek-insight-card {trend_class}">
             <div class="pikelek-card-header">
                 <div class="pikelek-card-heading">
@@ -1584,7 +1833,6 @@ cards_html = f"""
         </article>
 
 
-        <!-- Energy spike card -->
         <article class="pikelek-insight-card {spike_class}">
             <div class="pikelek-card-header">
                 <div class="pikelek-card-heading">
@@ -1641,7 +1889,6 @@ cards_html = f"""
         </article>
 
 
-        <!-- Maximum forecast card -->
         <article class="pikelek-insight-card {maximum_class}">
             <div class="pikelek-card-header">
                 <div class="pikelek-card-heading">
@@ -1707,4 +1954,6 @@ cards_html = f"""
 # Render cards
 # -------------------------------------------------------------------------
 
-st.html(cards_css + cards_html)
+st.html(
+    cards_css + cards_html
+)
