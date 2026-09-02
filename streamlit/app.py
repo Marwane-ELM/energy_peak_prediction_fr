@@ -1764,7 +1764,7 @@ cards_html = f"""
 <section class="pikelek-insights">
 
     <header class="pikelek-insights-heading">
-        <h2>Forecast Consumption Analysis</h2>
+        <h2>Analysis of Electricity Consumption Forecasts</h2>
 
         <p>
             Summary of the electricity consumption forecast for the next
