@@ -92,21 +92,27 @@ def predict():
         params = {
             "where": f"start_date <= date'{today}' AND end_date >= date'{today}' AND zones = 'Zone {z}'"
         }
-        
-    while True:
+
+    print("Retreiving holidays from the gov api")
+
+    MAX_ATTEMPT_GOV = 3
+    for attempt in range(MAX_ATTEMPT_GOV):
         try:
-            response = requests.get(url, params=params)
-            response.raise_for_status()  # Vérifie les erreurs HTTP : 404, 500, etc.
+            response = requests.get(url, params=params, timeout=20)
+            response.raise_for_status()  # Vérifie les erreurs HTTP
     
-            data = response.json()
-            break  # La requête a réussi → on sort de la boucle
+            response = response.json()
+            print("holiday data retreived with success\n")
+
+            break  
     
         except requests.RequestException as error:
-            print(f"An error occured with the datagouv API : {error}")
+            print(f"An error occured with the datagouv API : {error}, attempt number {attempt}")
             time.sleep(5)  # Attend 5 secondes avant de réessayer
-
-
-            
+            if attempt >= MAX_ATTEMPT_GOV:
+                return (False, "Impossible to retreive holidays data from the gov api")
+    
+        
         # If no holidays we set the columns with the value 0
         if response["total_count"] == 0:
             continue
@@ -195,7 +201,9 @@ def predict():
         np.zeros(shape=(pred.shape[0], len(cols))),
         columns=cols
     )
-    
+
+
+    print("retreiving data from Open-Meteo API")
     for k, v in lat_long.items():
     
         # Calling the API for our department
@@ -207,7 +215,13 @@ def predict():
         	"past_days": 7,
         	"forecast_days": 2,
         }
-        responses = openmeteo.weather_api(url, params = params)
+
+
+        try:
+            responses = openmeteo.weather_api(url, params=params)
+        except Exception as error:
+            print(f"Open-Meteo failed for {v['ville']}: {error}")
+            return (False, f"Open-Meteo failed for {v['ville']}: {error}")
         
         # Process first location. Add a for-loop for multiple locations or weather models
         response = responses[0]
@@ -265,7 +279,8 @@ def predict():
         population = weights[k]
         df_temp += hourly_dataframe[cols].values * population
     
-    
+    print("data from Open-Meteo API retreived with success")
+
     pred = pd.concat([pred, df_temp], axis=1)
     dates = pred["full_date"]
     pred = pred.drop("full_date", axis=1)
@@ -340,7 +355,9 @@ def predict():
     
             cursor.execute("""
                 INSERT INTO forecasts (timestamp, consumption_mw, horizon)
-                VALUES (%s, %s, %s);
+                VALUES (%s, %s, %s)
+                ON CONFLICT (timestamp, horizon)
+                DO NOTHING;
                 """,
                 (dates[i], p[0], i)
             )

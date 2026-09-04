@@ -1,5 +1,7 @@
+import base64
 import re
 from html import escape
+from pathlib import Path
 
 import altair
 import pandas as pd
@@ -15,72 +17,136 @@ st.set_page_config(
     page_icon="⚡"
 )
 
-# -------------------------------------------------------------------------
-# Remove Streamlit's default header, toolbar, menu and top gap
-# -------------------------------------------------------------------------
+
+# =========================================================================
+# LOGO CONFIGURATION
+# =========================================================================
+
+# Change this filename only if your logo has another name.
+#
+# Examples:
+# LOGO_FILENAME = "pikelek-logo.svg"
+# LOGO_FILENAME = "pikelek-logo.png"
+LOGO_FILENAME = "pikelek-logo2.png"
+
+
+# Folder containing this app.py file:
+# /home/marwane/energy_peak_prediction/streamlit
+APP_DIR = Path(__file__).resolve().parent
+
+# Project root:
+# /home/marwane/energy_peak_prediction
+PROJECT_DIR = APP_DIR.parent
+
+
+def find_logo_path():
+    """
+    Looks for the logo in common locations.
+
+    Supported locations:
+    1. streamlit/assets/pikelek-logo.svg
+    2. assets/pikelek-logo.svg
+    3. streamlit/pikelek-logo.svg
+    """
+    possible_paths = [
+        APP_DIR / "assets" / LOGO_FILENAME,
+        PROJECT_DIR / "assets" / LOGO_FILENAME,
+        APP_DIR / LOGO_FILENAME
+    ]
+
+    for path in possible_paths:
+        if path.exists():
+            return path
+
+    expected_locations = "\n".join(
+        f"• {path}"
+        for path in possible_paths
+    )
+
+    raise FileNotFoundError(
+        "Logo file not found.\n\n"
+        f"Put your logo in one of these locations:\n"
+        f"{expected_locations}\n\n"
+        "Also verify that the filename and extension match exactly. "
+        "Linux is case-sensitive."
+    )
+
+
+@st.cache_data
+def image_to_data_uri(image_path: str) -> str:
+    """
+    Converts a local PNG or SVG image to a Base64 data URI.
+    This allows it to be used inside an HTML <img> tag.
+    """
+    path = Path(image_path)
+
+    extension = path.suffix.lower()
+
+    mime_types = {
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp"
+    }
+
+    mime_type = mime_types.get(
+        extension,
+        "image/png"
+    )
+
+    encoded_image = base64.b64encode(
+        path.read_bytes()
+    ).decode("utf-8")
+
+    return f"data:{mime_type};base64,{encoded_image}"
+
+
+LOGO_PATH = find_logo_path()
+logo_data_uri = image_to_data_uri(
+    str(LOGO_PATH)
+)
+
+
+# =========================================================================
+# REMOVE STREAMLIT'S DEFAULT HEADER, TOOLBAR, MENU AND TOP GAP
+# =========================================================================
 
 st.markdown(
     """
     <style>
-        /*
-        Remove Streamlit's complete top header.
-        */
         [data-testid="stHeader"] {
             display: none !important;
             height: 0 !important;
             min-height: 0 !important;
         }
 
-        /*
-        Remove the toolbar containing Deploy, Rerun and other buttons.
-        */
         [data-testid="stToolbar"] {
             display: none !important;
         }
 
-        /*
-        Remove the Deploy button if Streamlit renders it separately.
-        */
         [data-testid="stAppDeployButton"] {
             display: none !important;
         }
 
-        /*
-        Remove the three-dot Streamlit menu.
-        */
         #MainMenu {
             display: none !important;
             visibility: hidden !important;
         }
 
-        /*
-        Remove Streamlit's colored decoration line.
-        */
         [data-testid="stDecoration"] {
             display: none !important;
         }
 
-        /*
-        Remove Streamlit's running/status indicator from the header.
-        */
         [data-testid="stStatusWidget"] {
             display: none !important;
         }
 
-        /*
-        Reduce the empty space left after removing the header.
-
-        Increase this value if your logo becomes too close to the top.
-        For example: 1.5rem or 2rem.
-        */
         [data-testid="stMainBlockContainer"],
         .block-container {
             padding-top: 1rem !important;
         }
 
-        /*
-        Smaller top spacing on mobile screens.
-        */
         @media (max-width: 600px) {
             [data-testid="stMainBlockContainer"],
             .block-container {
@@ -93,59 +159,75 @@ st.markdown(
 )
 
 
-# Automatic refresh every 20 seconds.
+# =========================================================================
+# AUTOMATIC REFRESH
+# =========================================================================
+
 refresh_count = st_autorefresh(
     interval=20_000,
     key="forecast_auto_refresh"
 )
 
 
-# -------------------------------------------------------------------------
-# Application header
-# -------------------------------------------------------------------------
+# =========================================================================
+# APPLICATION HEADER WITH IMAGE LOGO
+# =========================================================================
+
+header_css = """
+<style>
+    .pikelek-header {
+        margin-top: -0.8rem;
+        margin-bottom: 3.6rem;
+        line-height: 1;
+    }
+
+    .pikelek-logo-image {
+        display: block;
+        width: 200px;
+        height: auto;
+        max-width: 100%;
+        object-fit: contain;
+    }
+
+    .pikelek-tagline {
+        margin-top: 0.45rem;
+        color: #7A8594;
+        font-size: 0.8rem;
+        font-weight: 500;
+        letter-spacing: 0.04rem;
+        line-height: 1.35;
+        text-transform: uppercase;
+    }
+
+    @media (max-width: 600px) {
+        .pikelek-logo-image {
+            width: 150px;
+        }
+
+        .pikelek-tagline {
+            font-size: 0.62rem;
+        }
+    }
+</style>
+"""
+
+header_html = f"""
+<div class="pikelek-header">
+    <img
+        class="pikelek-logo-image"
+        src="{logo_data_uri}"
+        alt="PikElek AI logo"
+    >
+    <div class="pikelek-tagline">
+        Electricity Peak and Consumption Forecasts
+    </div>
+</div>
+"""
 
 st.markdown(
-    """
-        <style>
-            .pikelek-header {
-                margin-top: -0.8rem;
-                margin-bottom: 3.6rem;
-                line-height: 1;
-            }
-    
-            .pikelek-logo {
-                color: #8acaff;
-                font-size: 2rem;
-                font-weight: 800;
-                letter-spacing: -0.06rem;
-            }
-    
-            .pikelek-logo-ai {
-                color: #F28E2B;
-            }
-    
-            .pikelek-tagline {
-                margin-top: 0.25rem;
-                color: #7A8594;
-                font-size: 0.68rem;
-                font-weight: 500;
-                letter-spacing: 0.04rem;
-                text-transform: uppercase;
-            }
-        </style>
-    
-        <div class="pikelek-header">
-            <div class="pikelek-logo">
-                PikElek<span class="pikelek-logo-ai">.AI</span>
-            </div>
-            <div class="pikelek-tagline">
-                Electricity Peak and Consumption Forecasts
-            </div>
-        </div>
-    """,
+    header_css + header_html,
     unsafe_allow_html=True
 )
-
 
 # -------------------------------------------------------------------------
 # Retrieve prediction data
