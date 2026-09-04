@@ -155,7 +155,7 @@ def get_peak():
                         time_y_0 = df_hist["time"].iloc[-1]
         
                     if y_max > y_0:
-                        percentage_increase = int((((y_max - y_0) / y_0)*100))
+                        percentage_increase = float((((y_max - y_0) / y_0)*100))
                         increase_infos = (True, y_max, time_y_max, percentage_increase)
             
                     else : 
@@ -184,14 +184,19 @@ def get_peak():
                     elec_demand_infos = (slope, "Low")
                 # (Slope rate, elec demand level)
                 all_infos["slope"] = elec_demand_infos
+
                 
         
                 # Spike Detection
+
+                y = list(df_pred["pred"])  # We add to y (the list of the next predictions) the last known historical value
                 y = np.insert(y, 0, y_0)
                 diffs = np.diff(y)
                 idx_max_diff = np.argmax(diffs)
-                
+                #print(idx_max_diff)
                 df_pred = df_pred.sort_values(by="time").reset_index(drop=True)
+                #print(df_pred)
+                #print(df_pred["pred"].iloc[idx_max_diff])
                 y_spike = df_pred["pred"].iloc[idx_max_diff]
                 y_spike_time = df_pred["time"].iloc[idx_max_diff]
         

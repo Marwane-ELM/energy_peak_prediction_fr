@@ -183,7 +183,7 @@ header_css = """
 
     .pikelek-logo-image {
         display: block;
-        width: 200px;
+        width: 210px;
         height: auto;
         max-width: 100%;
         object-fit: contain;
@@ -438,7 +438,40 @@ chart_df = (
 )
 
 
-# Last chronological prediction returned by the API.
+# -------------------------------------------------------------------------
+# Last chronological historical point
+# -------------------------------------------------------------------------
+#
+# This finds the newest available point from the blue historical curve.
+# It is used to display the vertical cursor line by default when the
+# application first loads.
+# -------------------------------------------------------------------------
+
+historical_valid = historical.dropna(
+    subset=[
+        "timestamp",
+        "hist_consumption_mw"
+    ]
+).copy()
+
+if historical_valid.empty:
+    last_historical_hour = None
+
+else:
+    last_historical_timestamp = historical_valid[
+        "timestamp"
+    ].max()
+
+    last_historical_hour = (
+        last_historical_timestamp
+        .strftime("%H:%M")
+    )
+
+
+# -------------------------------------------------------------------------
+# Last chronological prediction returned by the API
+# -------------------------------------------------------------------------
+
 if predictions.empty:
     last_prediction_df = pd.DataFrame(
         columns=[
@@ -449,7 +482,9 @@ if predictions.empty:
     )
 
 else:
-    last_prediction_timestamp = predictions["timestamp"].max()
+    last_prediction_timestamp = predictions[
+        "timestamp"
+    ].max()
 
     last_prediction_hour = (
         last_prediction_timestamp
@@ -510,13 +545,32 @@ historical_gradient = altair.Gradient(
 # -------------------------------------------------------------------------
 # Hover selection
 # -------------------------------------------------------------------------
+#
+# The selection starts on the final historical / blue data point.
+# clear=False ensures that the vertical line remains visible even after
+# the user moves the mouse outside of the chart.
+# -------------------------------------------------------------------------
+
+hover_settings = {
+    "fields": ["hour"],
+    "on": "pointermove",
+    "clear": False,
+    "toggle": False,
+    "empty": False
+}
+
+
+# Set the initial vertical cursor position to the latest historical point.
+if last_historical_hour is not None:
+    hover_settings["value"] = [
+        {
+            "hour": last_historical_hour
+        }
+    ]
+
 
 hover = altair.selection_point(
-    fields=["hour"],
-    on="pointermove",
-    clear="mouseout",
-    toggle=False,
-    empty=False
+    **hover_settings
 )
 
 
@@ -1138,7 +1192,7 @@ def format_percentage(value):
 
     sign = "+" if number >= 0 else "−"
 
-    return f"{sign}{abs(number):.1f}%"
+    return f"{sign}{abs(number):.2f}%"
 
 
 def format_slope_rate(value):
@@ -1995,7 +2049,7 @@ cards_html = f"""
 
                 <div class="pikelek-card-description">
                     Highest electricity consumption value identified
-                    in the available forecast.
+                    in the available forecast, and higher than the last known historical value.
                 </div>
 
                 <div class="pikelek-card-badge">
