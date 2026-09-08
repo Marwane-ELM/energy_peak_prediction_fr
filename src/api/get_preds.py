@@ -10,10 +10,17 @@ from sklearn.linear_model import LinearRegression
 
 app = FastAPI()
 
+
+
+@app.get("/test")
+def health():
+    return {"status": "ok"}
+    
+
 @app.get("/predict")
 def get_preds():
     conn = psycopg.connect(
-        host="localhost",
+        host="postgres_db",
         port=5432,
         dbname="energy_db",
         user="postgres",
@@ -58,7 +65,7 @@ def get_peak():
     france_tz = pytz.timezone("Europe/Paris")
     current_date = datetime.now(france_tz).date()
     conn = psycopg.connect(
-        host="localhost",
+        host="postgres_db",
         port=5432,
         dbname="energy_db",
         user="postgres",
@@ -106,12 +113,21 @@ def get_peak():
             df_pred = df_pred.sort_values(by="time", ascending=False)
 
             # If the minute number is between [10, 40[ we select the predictions older than 'current_hour:30'
-            # Otherwise, if it's  between [0, 9] or [40, 59] we select the predictons older than 'current_hour:00'
+            # if it's  between [40, 59] and hour != 23, we select the predictons older than 'next-hour:00'
+            # if it's hour=23 and 40 <= minute <= 59, then we keep the only one prediction at 23h30
+            # if minute between [0, 9] we keep the hour and set minutes=00 
             current_time = datetime.now(france_tz).time()
             if (10 <= current_time.minute) and (current_time.minute < 40):
                 current_time = current_time.replace(minute=30, second=0, microsecond=0)
+            elif (40 <= current_time.minute) and (current_time.minute <= 59):
+                if current_time.hour != 23:  
+                    current_time = current_time.replace(hour= current_time.hour + 1, minute=00, second=0, microsecond=0)
+                else :
+                    current_time = current_time.replace(minute=30, second=0, microsecond=0)
+
             else:
-                current_time = current_time.replace(hour= current_time.hour + 1, minute=00, second=0, microsecond=0)
+                    
+                current_time = current_time.replace(minute=00, second=0, microsecond=0)
             df_pred = df_pred[df_pred["time"].dt.time >= current_time]
 
 
@@ -176,9 +192,9 @@ def get_peak():
                 slope = model.coef_[0]
         
                 elec_demand_infos = tuple()
-                if slope > 4000:
+                if slope > 3000:
                     elec_demand_infos = (slope, "High")
-                if slope > 1500:
+                elif slope > 1500:
                     elec_demand_infos = (slope, "Medium")
                 else:
                     elec_demand_infos = (slope, "Low")

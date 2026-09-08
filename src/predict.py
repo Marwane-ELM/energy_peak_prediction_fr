@@ -20,12 +20,12 @@ from vacances_scolaires_france import SchoolHolidayDates
 
 from pathlib import Path
 from joblib import load, dump
-from . import raw_preprocessing as rp
-from . import feature_engineering as fe
+import raw_preprocessing as rp
+import feature_engineering as fe
 
 
 scheduler = BlockingScheduler()
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent
 
 
 
@@ -299,7 +299,7 @@ def predict():
 
 #------ We save in the database the predictions and the historical energy consumption data ---
     conn = psycopg.connect(
-        host = "localhost",
+        host = "postgres_db",
         port = 5432,
         dbname = "energy_db",
         user="postgres",

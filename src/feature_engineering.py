@@ -5,7 +5,7 @@ import os.path
 import sys
 #sys.path.append(os.path.abspath(".."))
 from datetime import datetime
-from . import raw_preprocessing as rp
+import raw_preprocessing as rp
 
 
 def date_and_hour(df):
