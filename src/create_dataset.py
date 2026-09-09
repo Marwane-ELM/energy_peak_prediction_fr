@@ -56,7 +56,6 @@ def download_data(station_population):
     - Download the public holidays from the government's website that contains our year intervals
     - Download the historiacl weather data for the 5 main departments that contains our year intervals
     
-    - Make sure to download them in the correct files
     """
 
     # ------------Downloading of the conso datasets --------------#
