@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 
 
-# ------- Historical data about power consumption --------
+# Historical data about power consumption 
 
 def conso_preprocess(PATH_CONSO):
     """
@@ -36,7 +36,7 @@ def conso_preprocess(PATH_CONSO):
 
 
 
-# ------- SCHOOL HOLIDAYS --------
+# SCHOOL HOLIDAYS 
 
 def is_holiday(date, zone, holiday_ranges):
     return any(start <= date < end for _, start, end in holiday_ranges[zone]) + 0
@@ -79,14 +79,13 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     zones = ["Zone_A", "Zone_B", "Zone_C"]
     new_holidays = conso_df[["Date"]]
     
-    # ---- 
+
     for zone in zones:    
         new_holidays[zone] = False
     for name in holiday_names:
         new_holidays[name] = 0
 
 
-    # -----
     # We store the holidays for each zone in a dictionary
     holiday_ranges = {}
     # Either we load it or we create it if needed
@@ -120,7 +119,6 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     else : 
         holiday_ranges = jb.load(PATH_ARTIFACTS / "holiday_ranges.pkl")  
 
-    # ------
     
     for zone in zones:
         new_holidays[zone] = new_holidays["Date"].apply(lambda d : is_holiday(d, zone, holiday_ranges))
@@ -131,7 +129,7 @@ def school_holidays_preprocess(conso_df, PATH_HOLIDAYS, PATH_ARTIFACTS):
     return conso_df
 
 
-# --------------------------------
+
 
 def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
     feries = pd.read_csv(PATH_PUBLIC_HDAY / "jours_feries_metropole.csv").drop(["annee", "zone"], axis=1) 
@@ -146,7 +144,8 @@ def public_holidays_preprocess(conso_df, PATH_PUBLIC_HDAY):
     
 
 
-# ----- SELECTING THE BEST WEATHER STATION 
+
+# SELECTING THE BEST WEATHER STATION 
 
 def monitoring_nan(df):
     print("Nb of stations : ", len(df["NUM_POSTE"].unique()))
@@ -202,9 +201,7 @@ def interpolation(x, n1, n2):
 
 
 def time_to_float(t):
-    """Convert datetime.time to float hours 
-    example :  14:30 -> 14.5
-    """
+    #Convert datetime.time to float hours example :  14:30 -> 14.5
     return t.hour + t.minute / 60
 
 
@@ -241,6 +238,8 @@ def interpolation_col(df):
                         df.loc[i, col] = interpolation(t, (t1, T1), (t2, T2))
     return df
 
+
+    
 def interpolate_pd(df):
     # The limit_direction is very important for our problem
     df[["T", "U"]] = df[["T", "U"]].interpolate(method="linear", limit=12, limit_direction="both")  
@@ -483,9 +482,7 @@ def dataset_v3(conso, PATH_CLEAN_WEATHER_FILES, PATH_DATASETS_VERSIONS):
 
 
 
-# ------------------------------  AUTOMATION OF THE PREPROCESSING --------------------------
-
-
+# THE  FUNCTION ABOUT PREPROCESSING 
 def preprocessing(
     path_to_clean_conso,
     path_to_conso,

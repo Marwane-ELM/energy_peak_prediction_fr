@@ -112,7 +112,7 @@ def download_data(station_population):
 
 
 
-# ---------------- TEST FUNCTION --------------------
+# ---------------- TEST FUNCTION --------------------#
 def download_monthly_data():
     url = "https://eco2mix.rte-france.com/download/eco2mix/eCO2mix_RTE_En-cours-TR.zip"
     current_year = datetime.now().year

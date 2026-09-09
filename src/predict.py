@@ -32,15 +32,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 def predict():
 
-#----- Importing the dataset + preprocessing ----
+    # Importing the dataset + preprocessing 
     df = rp.conso_preprocess(PROJECT_ROOT / "data" / "conso" / "real_time_conso")
     # We only keep the rows with minutes = 00 or 30
     df = df[df["Heures"].apply(lambda x: x.minute in {00, 30})]
     df = df.reset_index(drop=True)
 
-#----- We add the date and hour -----
+    # We add the date and hour
     df.loc[len(df)] = None
-#----- Adding lagged consumtion features (lag-1, lag-2, lag-48...)-----
+    # Adding lagged consumtion features (lag-1, lag-2, lag-48...)
     df = fe.lagged_consumption(df)
     
     last_date = df["Date"].iloc[-2]
@@ -56,7 +56,7 @@ def predict():
     df.loc[len(df)-1, "Date"] = new_datetime.strftime("%Y-%m-%d")
     df.loc[len(df)-1, "Heures"] = new_datetime.time()
 
-#----- Adding the infos about the holidays -----
+    # Adding the infos about the holidays 
     today = date.today().isoformat()
     url = "https://data.education.gouv.fr/api/explore/v2.1/catalog/datasets/fr-en-calendrier-scolaire/records"
     
@@ -145,7 +145,7 @@ def predict():
     df["Consommation"] = pd.to_numeric(df["Consommation"], errors="coerce")
     df["Consommation"] = df["Consommation"].interpolate()
     
-    #-----  Adding other columns -----
+    # Adding other columns 
     df = fe.date_and_hour_pred(df)
     df = fe.cyclical_encoding(df)
     df = fe.rolling_window(df)
@@ -159,14 +159,14 @@ def predict():
     hist_today = df[df["full_date"].dt.date == current_time.date()][["full_date", "Consommation"]].iloc[:-1, :]    
     df = df.drop(["Consommation"], axis=1)
 
-    # --- Input dataframe ---
+    # Input dataframe 
     row = df.iloc[-1]
     pred = pd.DataFrame([row] * 10)
     pred["full_date"] = row["full_date"] + pd.to_timedelta(range(10), unit="m") * 30
     pred = pred.reset_index(drop=True)
 
 
-# ---- Open-Meteo -----
+    # Open-Meteo 
     # Setup the Open-Meteo API client with cache and retry on error
     cache_session = requests_cache.CachedSession('.cache', expire_after = 3600)
     retry_session = retry(cache_session, retries = 5, backoff_factor = 0.2)
@@ -287,7 +287,7 @@ def predict():
     pred = pred.drop("full_date", axis=1)
 
     
-# -- Interactions features tailored for linear models ---
+    # Interactions features tailored for linear models 
     pred = fe.interactions_linear(pred)
         
     
@@ -298,7 +298,7 @@ def predict():
     pred2 = fe.drop_useless(pred2)
 
 
-#------ We save in the database the predictions and the historical energy consumption data ---
+    # We save in the database the predictions and the historical energy consumption data ---
     conn = psycopg.connect(
         host = "postgres_db",
         port = 5432,
