@@ -11,6 +11,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 scheduler = BlockingScheduler(timezone="Europe/Paris")
 
+# PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = Path(__file__).resolve().parent
 path_to_data = PROJECT_ROOT / "data"
 path_to_conso = path_to_data / "conso"
@@ -79,7 +80,7 @@ if __name__ == "__main__":
         run_pipeline,
         "cron",
         max_instances=1,
-        minute="10,45"
+        minute="10,40"
     )
 
     scheduler.start()

@@ -235,7 +235,7 @@ st.markdown(
 
 try:
     response = requests.get(
-        "http://127.0.0.1:8000/predict",
+        "http://fastapi_container:8000/predict",
         timeout=60
     )
     response.raise_for_status()
@@ -1006,8 +1006,22 @@ st.altair_chart(
 # =========================================================================
 
 try:
+
+    # For local requests
+    #response2 = requests.get(
+    #    "http://127.0.0.1:8000/demand",
+    #    timeout=60
+    #)
+
+    # For requests on docker network
+    # There are 2 ways to write the ip adress part before the port
+    
+    #response2 = requests.get(
+    #    "http://http://172.18.0.5:8000/demand",
+    #    timeout=60
+    #)
     response2 = requests.get(
-        "http://127.0.0.1:8000/demand",
+        "http://fastapi_container:8000/demand",
         timeout=60
     )
     response2.raise_for_status()
