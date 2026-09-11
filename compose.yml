@@ -1,0 +1,61 @@
+services:
+
+    api:
+        build: 
+            context: .
+            dockerfile: ./src/api/Dockerfile
+        container_name: fastapi_container
+        ports:
+            - "8000:8000"
+        depends_on: 
+            - postgresql
+        networks:
+            - pikelek_network
+
+    
+    streamlit:
+        build: 
+            context: .
+            dockerfile: ./streamlit/Dockerfile
+        container_name: streamlit_container
+        ports: 
+            - "8501:8501"
+        depends_on:
+            - api
+            - postgresql
+        networks:
+            - pikelek_network
+
+
+          
+    postgresql:
+        container_name: postgres_db
+        image: postgres:15.19-trixie
+        ports: 
+            - "5432:5432"
+        networks:
+            - pikelek_network
+        volumes:
+            - db_data:/var/lib/postgresql/data
+
+
+
+    scheduler:
+        build:
+            context: .
+            dockerfile: ./src/Dockerfile
+        depends_on:  
+            - postgresql
+        networks:
+            - pikelek_network
+
+
+
+networks:
+    pikelek_network:
+        name: pikelek_network
+
+
+volumes:
+    db_data:
+        name: postgres_data

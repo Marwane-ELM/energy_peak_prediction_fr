@@ -2,10 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY src/rq_scheduler.txt .
 
 # --no-cache-dir : removes the files saved in the cache that have been used to download the libs (to free up some space)
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r rq_scheduler.txt
 
 RUN mkdir -p /app/data/conso/real_time_conso/
 
