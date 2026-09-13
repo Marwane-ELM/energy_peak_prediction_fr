@@ -46,6 +46,10 @@ services:
     postgresql:
         container_name: postgres_db
         image: postgres:15.19-trixie
+        environment:
+            - POSTGRES_DB=energy_db
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postmdp
         ports: 
             - "5432:5432"
         networks:
