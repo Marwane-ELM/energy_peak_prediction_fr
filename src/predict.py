@@ -300,7 +300,7 @@ def predict():
 
     # We save in the database the predictions and the historical energy consumption data ---
     conn = psycopg.connect(
-        host = "postgres_db",
+        host = "postgresql",
         port = 5432,
         dbname = "energy_db",
         user="postgres",

@@ -20,7 +20,7 @@ def health():
 @app.get("/predict")
 def get_preds():
     conn = psycopg.connect(
-        host="postgres_db",
+        host="postgresql",  # here 'postgrsql' is the name of the service in the docker compose file
         port=5432,
         dbname="energy_db",
         user="postgres",
@@ -65,7 +65,7 @@ def get_peak():
     france_tz = pytz.timezone("Europe/Paris")
     current_date = datetime.now(france_tz).date()
     conn = psycopg.connect(
-        host="postgres_db",
+        host="postgresql",
         port=5432,
         dbname="energy_db",
         user="postgres",
