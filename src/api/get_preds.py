@@ -26,31 +26,33 @@ def get_preds():
         user="postgres",
         password="postmdp"
     )
-    
-    # We create the tables if they don't exists
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS forecasts(
-        id SERIAL PRIMARY KEY,
-        timestamp timestamp,
-        consumption_mw double precision,
-        horizon smallint,
-        CONSTRAINT forecasts_horizon_check CHECK (horizon BETWEEN 0 AND 9),
-        CONSTRAINT unique_couple_time_horizon UNIQUE (timestamp, horizon)
-
-    );
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS historical(
-        id SERIAL PRIMARY KEY,
-        timestamp timestamp,
-        hist_consumption_mw double precision 
-    );
-    """)
 
     france_tz = pytz.timezone("Europe/Paris")
     current_date = datetime.now(france_tz).date()
     with conn.cursor() as cursor:
+
+        # We create the tables if they don't exists
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS forecasts(
+            id SERIAL PRIMARY KEY,
+            timestamp timestamp,
+            consumption_mw double precision,
+            horizon smallint,
+            CONSTRAINT forecasts_horizon_check CHECK (horizon BETWEEN 0 AND 9),
+            CONSTRAINT unique_couple_time_horizon UNIQUE (timestamp, horizon)
+    
+        );
+        """)
+    
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS historical(
+            id SERIAL PRIMARY KEY,
+            timestamp timestamp,
+            hist_consumption_mw double precision 
+        );
+        """)
+
+        
         cursor.execute("""
             SELECT timestamp, consumption_mw
             FROM forecasts
