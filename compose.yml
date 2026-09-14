@@ -1,13 +1,14 @@
 services:
 
     nginx:
-        image: nginx:alpine
+        image: marwaneelm/pikelek-nginx:v1
+        build:
+            context: ./nginx 
+            dockerfile: Dockerfile
         ports:
             - "80:80"
             - "443:443"
         restart: always
-        volumes:
-            - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
         networks:
             - pikelek_network
         depends_on:
