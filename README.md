@@ -4,8 +4,8 @@
 
 <h3 align="center">Electricity peak and consumption forecasts for France.</h3>
  
-<p align="center" style="font-size: 40px">
-  🔗 <strong>Live app :<a target="_blank" href="https://pikelek.com"> pikelek.com</a></strong>
+<p align="center" style="font-size: 25px">
+  🔗 <strong>Live app :<a target="_blank"href="https://pikelek.com"> pikelek.com</a></strong>
 </p>
   
 </br>
