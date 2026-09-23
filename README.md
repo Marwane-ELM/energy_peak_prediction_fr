@@ -1,10 +1,12 @@
 <p align="center">
-  <img src="streamlit/assets/pikelek-logo2.png" alt="Python" width="180"/>
+  <img src="streamlit/assets/pikelek-logo2.png" alt="Python" width="260"/>
 </p>  
 
-**Electricity peak and consumption forecasts for France.**
-
-🔗 **Live app** : [pikelek.com](https://pikelek.com)
+<h3 align="center">Electricity peak and consumption forecasts for France.</h3>
+ 
+<p align="center" style="font-size: 19px">
+  🔗 <strong>Live app —><a href="https://pikelek.com"> pikelek.com</a></strong>
+</p>
 
 ---
 
